@@ -92,6 +92,10 @@ func parseEnvelope(envelope string) ([]byte, error) {
 	return encrypted[0:n], nil
 }
 
+func createEnvelope(encrypted []byte) string {
+	return fmt.Sprintf("ENC[NACL,%s]", base64.StdEncoding.EncodeToString(encrypted))
+}
+
 func ellipsis(input string, maxLength int) string {
 	trimmed := strings.TrimSpace(input)
 	if len(trimmed) > (maxLength - 3) {
@@ -99,4 +103,14 @@ func ellipsis(input string, maxLength int) string {
 	}
 
 	return trimmed
+}
+
+func defaults(a ...string) string {
+	for _, item := range a {
+		if len(item) > 0 {
+			return item
+		}
+	}
+
+	return ""
 }

@@ -11,7 +11,7 @@ func errorResponse(w http.ResponseWriter, r *http.Request, err interface{}, stat
 	http.Error(w, fmt.Sprintf("%s", err), statusCode)
 }
 
-func daemonCommand(ip string, port int, decryptor Decryptor) {
+func daemonCommand(ip string, port int, crypto Crypto) {
 	http.HandleFunc("/v1/decrypt", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			errorResponse(w, r, "Expected POST method", http.StatusMethodNotAllowed)
@@ -27,13 +27,20 @@ func daemonCommand(ip string, port int, decryptor Decryptor) {
 		envelope := r.Form.Get("envelope")
 		log.Printf("Received request from %s with envelope %s", r.RemoteAddr, ellipsis(envelope, 64))
 
-		plaintext, err := decryptor.Decrypt(envelope)
+		plaintext, err := crypto.Decrypt(envelope)
 		if err != nil {
 			errorResponse(w, r, err, http.StatusBadRequest)
 			return
 		}
 
-		w.Write(plaintext)
+		// Encrypt secret with public key of client and send it back
+		encrypted, err := crypto.Encrypt(plaintext)
+		if err != nil {
+			errorResponse(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		w.Write([]byte(encrypted))
 	})
 
 	address := fmt.Sprintf("%s:%d", ip, port)

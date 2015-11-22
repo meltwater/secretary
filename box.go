@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/crypto/nacl/box"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -19,8 +20,19 @@ func genkey(publicKeyFile string, privateKeyFile string) {
 	pemWrite(privateKey, privateKeyFile, "NACL PRIVATE KEY", 0600)
 }
 
+// Encrypt into a NaCL box
+func encrypt(publicKey *[32]byte, privateKey *[32]byte, plaintext []byte) ([]byte, error) {
+	var nonce [24]byte
+	_, err := io.ReadFull(rand.Reader, nonce[:])
+	if err != nil {
+		return nil, errors.New("Failed generate random nonce")
+	}
+
+	return box.Seal(nonce[:], plaintext, &nonce, publicKey, privateKey), nil
+}
+
 // Decrypts a NaCL box
-func decrypt(senderPublicKey *[32]byte, privateKey *[32]byte, encrypted []byte) ([]byte, error) {
+func decrypt(publicKey *[32]byte, privateKey *[32]byte, encrypted []byte) ([]byte, error) {
 	if len(encrypted) <= 24 {
 		return nil, errors.New("Expected at least 25 bytes of encrypted data")
 	}
@@ -28,7 +40,7 @@ func decrypt(senderPublicKey *[32]byte, privateKey *[32]byte, encrypted []byte) 
 	var nonce [24]byte
 	copy(nonce[:], encrypted)
 
-	plaintext, ok := box.Open(nil, encrypted[24:], &nonce, senderPublicKey, privateKey)
+	plaintext, ok := box.Open(nil, encrypted[24:], &nonce, publicKey, privateKey)
 	if !ok {
 		return nil, errors.New("Failed to decrypt (incorrect keys?)")
 	}
@@ -37,16 +49,26 @@ func decrypt(senderPublicKey *[32]byte, privateKey *[32]byte, encrypted []byte) 
 }
 
 // Generic decryption mechanism
-type Decryptor interface {
+type Crypto interface {
+	Encrypt(plaintext []byte) (string, error)
 	Decrypt(envelope string) ([]byte, error)
 }
 
 // Decrypts using in-memory keys
-type KeyDecryptor struct {
+type KeyCrypto struct {
 	PublicKey, PrivateKey *[32]byte
 }
 
-func (self *KeyDecryptor) Decrypt(envelope string) ([]byte, error) {
+func (self *KeyCrypto) Encrypt(plaintext []byte) (string, error) {
+	encrypted, err := encrypt(self.PublicKey, self.PrivateKey, plaintext)
+	if err != nil {
+		return "", err
+	}
+
+	return createEnvelope(encrypted), nil
+}
+
+func (self *KeyCrypto) Decrypt(envelope string) ([]byte, error) {
 	encrypted, err := parseEnvelope(envelope)
 	if err != nil {
 		return nil, err
@@ -55,34 +77,49 @@ func (self *KeyDecryptor) Decrypt(envelope string) ([]byte, error) {
 	return decrypt(self.PublicKey, self.PrivateKey, encrypted)
 }
 
-func NewKeyDecryptor(publicKey *[32]byte, privateKey *[32]byte) *KeyDecryptor {
-	return &KeyDecryptor{PublicKey: publicKey, PrivateKey: privateKey}
+func NewKeyCrypto(publicKey *[32]byte, privateKey *[32]byte) *KeyCrypto {
+	return &KeyCrypto{PublicKey: publicKey, PrivateKey: privateKey}
 }
 
 // Decrypts using the secretary daemon
-type RemoteDecryptor struct {
-	Url string
+type RemoteCrypto struct {
+	DaemonUrl             string
+	PublicKey, PrivateKey *[32]byte
 }
 
-func NewRemoteDecryptor(url string) *RemoteDecryptor {
-	return &RemoteDecryptor{Url: url}
+func NewRemoteCrypto(url string, publicKey *[32]byte, privateKey *[32]byte) *RemoteCrypto {
+	return &RemoteCrypto{DaemonUrl: url, PublicKey: publicKey, PrivateKey: privateKey}
 }
 
-func (self *RemoteDecryptor) Decrypt(envelope string) ([]byte, error) {
-	response, err := http.PostForm(fmt.Sprintf("%s/v1/decrypt", self.Url), url.Values{"envelope": {envelope}})
+func (self *RemoteCrypto) Encrypt(plaintext []byte) (string, error) {
+	encrypted, err := encrypt(self.PublicKey, self.PrivateKey, plaintext)
+	if err != nil {
+		return "", err
+	}
+
+	return createEnvelope(encrypted), nil
+}
+
+func (self *RemoteCrypto) Decrypt(envelope string) ([]byte, error) {
+	response, err := http.PostForm(fmt.Sprintf("%s/v1/decrypt", self.DaemonUrl), url.Values{"envelope": {envelope}})
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to decrypt using daemon (%s)", err))
 	}
 
 	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	responseEnvelope, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to decrypt using daemon (%s)", err))
 	}
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, errors.New(fmt.Sprintf("Failed to decrypt using daemon (HTTP %d Error: %s)", response.StatusCode, ellipsis(string(body), 64)))
+		return nil, errors.New(fmt.Sprintf("Failed to decrypt using daemon (HTTP %d Error: %s)", response.StatusCode, ellipsis(string(responseEnvelope), 64)))
 	}
 
-	return body, nil
+	responseEncrypted, err := parseEnvelope(string(responseEnvelope))
+	if err != nil {
+		return nil, err
+	}
+
+	return decrypt(self.PublicKey, self.PrivateKey, responseEncrypted)
 }
