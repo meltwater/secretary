@@ -15,10 +15,10 @@ func encryptCommand(receiverPublicKeyFile string, senderPrivateKeyFile string) {
 	plaintext, err := ioutil.ReadAll(os.Stdin)
 	check(err, "Failed to read plaintext data from standard input")
 
-	encrypted, err := encrypt(receiverPublicKey, senderPrivateKey, plaintext)
+	envelope, err := encryptEnvelope(receiverPublicKey, senderPrivateKey, plaintext)
 	check(err)
 
-	os.Stdout.WriteString(createEnvelope(encrypted))
+	os.Stdout.WriteString(envelope)
 }
 
 // Decrypts data from stdin and writes to stdout

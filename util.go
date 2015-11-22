@@ -1,13 +1,11 @@
 package main
 
 import (
-	"encoding/base64"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
-	"path/filepath"
+	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -49,53 +47,6 @@ func min(a int, b int) int {
 	return b
 }
 
-// Converts a byte slice to the [32]byte expected by NaCL
-func asKey(data []byte) *[32]byte {
-	var key [32]byte
-	copy(key[:], data[0:32])
-	return &key
-}
-
-// Serialize a NaCL key to a PEM file
-func pemWrite(key *[32]byte, path string, pemType string, fileMode os.FileMode) {
-	pemData := pem.EncodeToMemory(&pem.Block{Type: pemType, Bytes: key[:]})
-	check(os.MkdirAll(filepath.Dir(path), 0775), "Failed to create directory %s", filepath.Dir(path))
-	check(ioutil.WriteFile(path, pemData, fileMode), "Failed to write file %s", path)
-}
-
-// Deserialize a PEM file to a NaCL key
-func pemRead(path string) *[32]byte {
-	pemData, err := ioutil.ReadFile(path)
-	check(err, "Failed to read key from %s", path)
-
-	pemBlock, _ := pem.Decode(pemData)
-	assert(len(pemBlock.Bytes) == 32, "Expected key %s to be at least 32 bytes", path)
-	return asKey(pemBlock.Bytes)
-}
-
-func isEnvelope(envelope string) bool {
-	return strings.HasPrefix(envelope, "ENC[NACL,") && strings.HasSuffix(envelope, "]")
-}
-
-func parseEnvelope(envelope string) ([]byte, error) {
-	if !isEnvelope(envelope) {
-		return nil, errors.New("Expected ENC[NACL,...] structured string")
-	}
-
-	encoded := envelope[9 : len(envelope)-1]
-	encrypted := make([]byte, base64.StdEncoding.DecodedLen(len(encoded)))
-	n, err := base64.StdEncoding.Decode(encrypted, []byte(encoded))
-	if err != nil {
-		return nil, err
-	}
-
-	return encrypted[0:n], nil
-}
-
-func createEnvelope(encrypted []byte) string {
-	return fmt.Sprintf("ENC[NACL,%s]", base64.StdEncoding.EncodeToString(encrypted))
-}
-
 func ellipsis(input string, maxLength int) string {
 	trimmed := strings.TrimSpace(input)
 	if len(trimmed) > (maxLength - 3) {
@@ -113,4 +64,36 @@ func defaults(a ...string) string {
 	}
 
 	return ""
+}
+
+func httpReadBody(response *http.Response) ([]byte, error) {
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, errors.New(fmt.Sprintf("HTTP %d Error: %s", response.StatusCode, ellipsis(string(body), 64)))
+	}
+
+	return body, nil
+}
+
+func httpPostForm(url string, values url.Values) ([]byte, error) {
+	response, err := http.PostForm(url, values)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to decrypt using daemon (%s)", err))
+	}
+
+	return httpReadBody(response)
+}
+
+func httpGet(url string) ([]byte, error) {
+	response, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+
+	return httpReadBody(response)
 }

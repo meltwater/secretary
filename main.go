@@ -44,22 +44,25 @@ func main() {
 
 	// Decryption command
 	{
-		var publicKeyFile, privateKeyFile, daemonUrl string
+		var daemonUrl, appId, appVersion, taskId string
+		var configKeyFile, masterKeyFile, privateKeyFile string
 		var decryptEnv bool
 		cmdDecrypt := &cobra.Command{
 			Use:   "decrypt",
 			Short: "Decrypt data",
 			Run: func(cmd *cobra.Command, args []string) {
 				var crypto Crypto
+				configKey := pemRead(configKeyFile)
 
 				if len(daemonUrl) > 0 {
-					publicKey := pemRead(defaults(publicKeyFile, "./keys/master-public-key.pem"))
+					masterKey := pemRead(masterKeyFile)
 					privateKey := pemRead(defaults(privateKeyFile, "./keys/config-private-key.pem"))
-					crypto = NewRemoteCrypto(daemonUrl, publicKey, privateKey)
+					crypto = NewRemoteCrypto(
+						daemonUrl, appId, appVersion, taskId,
+						configKey, masterKey, privateKey)
 				} else {
-					publicKey := pemRead(defaults(publicKeyFile, "./keys/config-public-key.pem"))
 					privateKey := pemRead(defaults(privateKeyFile, "./keys/master-private-key.pem"))
-					crypto = NewKeyCrypto(publicKey, privateKey)
+					crypto = NewKeyCrypto(configKey, privateKey)
 				}
 
 				if decryptEnv {
@@ -70,9 +73,14 @@ func main() {
 			},
 		}
 
-		cmdDecrypt.Flags().StringVarP(&publicKeyFile, "public-key", "", "", "Config public key file")
-		cmdDecrypt.Flags().StringVarP(&privateKeyFile, "private-key", "", "", "Master private key file")
-		cmdDecrypt.Flags().StringVarP(&daemonUrl, "daemon-url", "d", "", "URL of secretary daemon, e.g. https://master:8080")
+		cmdDecrypt.Flags().StringVarP(&configKeyFile, "config-key", "", "./keys/config-public-key.pem", "Config public key file")
+		cmdDecrypt.Flags().StringVarP(&masterKeyFile, "master-key", "", "./keys/master-public-key.pem", "Master public key file")
+		cmdDecrypt.Flags().StringVarP(&privateKeyFile, "private-key", "", "", "Private key file")
+
+		cmdDecrypt.Flags().StringVarP(&daemonUrl, "secretary-url", "s", "", "URL of secretary daemon, e.g. https://secretary:8080")
+		cmdDecrypt.Flags().StringVarP(&appId, "app-id", "", os.Getenv("MARATHON_APP_ID"), "Marathon app id")
+		cmdDecrypt.Flags().StringVarP(&appVersion, "app-version", "", os.Getenv("MARATHON_APP_VERSION"), "Marathon app config version")
+		cmdDecrypt.Flags().StringVarP(&taskId, "task-id", "", os.Getenv("MESOS_TASK_ID"), "Mesos task id")
 
 		cmdDecrypt.Flags().BoolVarP(&decryptEnv, "decrypt-env", "e", false, "Decrypt environment variables")
 		rootCmd.AddCommand(cmdDecrypt)
@@ -80,22 +88,23 @@ func main() {
 
 	// Daemon command
 	{
-		var publicKeyFile, privateKeyFile, daemonIp string
+		var marathonUrl, configKeyFile, masterKeyFile, daemonIp string
 		var daemonPort int
 
 		cmdDaemon := &cobra.Command{
 			Use:   "daemon",
 			Short: "Start the REST service that decrypts secrets",
 			Run: func(cmd *cobra.Command, args []string) {
-				publicKey := pemRead(publicKeyFile)
-				privateKey := pemRead(privateKeyFile)
-				crypto := NewKeyCrypto(publicKey, privateKey)
-				daemonCommand(daemonIp, daemonPort, crypto)
+				listenAddress := fmt.Sprintf("%s:%d", daemonIp, daemonPort)
+				configKey := pemRead(configKeyFile)
+				masterKey := pemRead(masterKeyFile)
+				daemonCommand(listenAddress, marathonUrl, configKey, masterKey)
 			},
 		}
 
-		cmdDaemon.Flags().StringVarP(&publicKeyFile, "public-key", "", "./keys/config-public-key.pem", "Config public key file")
-		cmdDaemon.Flags().StringVarP(&privateKeyFile, "private-key", "", "./keys/master-private-key.pem", "Master private key file")
+		cmdDaemon.Flags().StringVarP(&marathonUrl, "marathon-url", "", "http://localhost:8080", "URL of Marathon")
+		cmdDaemon.Flags().StringVarP(&configKeyFile, "config-key", "", "./keys/config-public-key.pem", "Config public key file")
+		cmdDaemon.Flags().StringVarP(&masterKeyFile, "master-key", "", "./keys/master-private-key.pem", "Master private key file")
 
 		cmdDaemon.Flags().StringVarP(&daemonIp, "ip", "i", "0.0.0.0", "Interface to bind to")
 		cmdDaemon.Flags().IntVarP(&daemonPort, "port", "p", 8080, "Port to listen on")
