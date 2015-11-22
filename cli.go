@@ -1,4 +1,4 @@
-package secretary
+package main
 
 import (
 	"crypto/rand"
@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 // Generates an NaCL key-pair
@@ -35,14 +36,7 @@ func encrypt(receiverPublicKeyFile string, senderPrivateKeyFile string) {
 	fmt.Printf("ENC[NACL,%s]", base64.StdEncoding.EncodeToString(encrypted))
 }
 
-// Decrypts data from stdin and writes to stdout
-func decrypt(senderPublicKeyFile string, receiverPrivateKeyFile string) {
-	senderPublicKey := pemRead(senderPublicKeyFile)
-	receiverPrivateKey := pemRead(receiverPrivateKeyFile)
-
-	envelope, err := ioutil.ReadAll(os.Stdin)
-	check(err, "Failed to read encrypted data from standard input")
-
+func decryptEnvelope(senderPublicKey *[32]byte, receiverPrivateKey *[32]byte, envelope []byte, msg string) []byte {
 	encoded := envelope[9 : len(envelope)-1]
 	encrypted := make([]byte, base64.StdEncoding.DecodedLen(len(encoded)))
 	n, err := base64.StdEncoding.Decode(encrypted, encoded)
@@ -51,7 +45,43 @@ func decrypt(senderPublicKeyFile string, receiverPrivateKeyFile string) {
 	var nonce [24]byte
 	copy(nonce[:], encrypted)
 	plaintext, ok := box.Open(nil, encrypted[24:n], &nonce, senderPublicKey, receiverPrivateKey)
-	assert(ok, "Decryption failed (incorrect keys?)")
+	assert(ok, "Decryption failed (%s)", msg)
 
+	return plaintext
+}
+
+// Decrypts data from stdin and writes to stdout
+func decryptStream(senderPublicKey *[32]byte, receiverPrivateKey *[32]byte) {
+	envelope, err := ioutil.ReadAll(os.Stdin)
+	check(err, "Failed to read encrypted data from standard input")
+
+	plaintext := decryptEnvelope(senderPublicKey, receiverPrivateKey, envelope, "incorrect keys?")
 	os.Stdout.Write(plaintext)
+}
+
+// Decrypts environment variables and writes them to stdout
+func decryptEnvironment(senderPublicKey *[32]byte, receiverPrivateKey *[32]byte) {
+	for _, item := range os.Environ() {
+		keyval := strings.SplitN(item, "=", 2)
+		key, value := keyval[0], keyval[1]
+
+		if strings.HasPrefix(value, "ENC[NACL,") && strings.HasSuffix(value, "]") {
+			plaintext := decryptEnvelope(senderPublicKey, receiverPrivateKey, []byte(value), key)
+
+			// TODO: needs shell escaping of plaintext value
+			fmt.Printf("export %s='%s'\n", key, plaintext)
+		}
+	}
+}
+
+// Decrypts data from stdin and writes to stdout
+func decrypt(senderPublicKeyFile string, receiverPrivateKeyFile string, decryptEnv bool) {
+	senderPublicKey := pemRead(senderPublicKeyFile)
+	receiverPrivateKey := pemRead(receiverPrivateKeyFile)
+
+	if decryptEnv {
+		decryptEnvironment(senderPublicKey, receiverPrivateKey)
+	} else {
+		decryptStream(senderPublicKey, receiverPrivateKey)
+	}
 }

@@ -1,4 +1,4 @@
-package secretary
+package main
 
 import (
 	"errors"

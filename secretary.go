@@ -1,4 +1,4 @@
-package secretary
+package main
 
 import (
 	"fmt"
@@ -41,16 +41,18 @@ func main() {
 
 	// Decryption command
 	var senderPublicKeyFile, receiverPrivateKeyFile string
+	var decryptEnv bool
 	cmdDecrypt := &cobra.Command{
 		Use:   "decrypt",
 		Short: "Decrypt data",
 		Run: func(cmd *cobra.Command, args []string) {
-			decrypt(senderPublicKeyFile, receiverPrivateKeyFile)
+			decrypt(senderPublicKeyFile, receiverPrivateKeyFile, decryptEnv)
 		},
 	}
 
 	cmdDecrypt.Flags().StringVarP(&senderPublicKeyFile, "public-key", "", "./keys/config-public-key.pem", "Sender public key file")
 	cmdDecrypt.Flags().StringVarP(&receiverPrivateKeyFile, "private-key", "", "./keys/master-private-key.pem", "Receiver private key file")
+	cmdDecrypt.Flags().BoolVarP(&decryptEnv, "decrypt-env", "e", false, "Decrypt environment variables")
 	rootCmd.AddCommand(cmdDecrypt)
 
 	// Handle checked errors nicely
