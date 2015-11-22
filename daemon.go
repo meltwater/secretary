@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-func daemon(ip string, port int, privateKeyFile string) {
+func daemonCommand(ip string, port int, privateKeyFile string) {
 	publicKey := pemRead("./keys/config-public-key.pem")
 	privateKey := pemRead(privateKeyFile)
 
@@ -18,7 +18,7 @@ func daemon(ip string, port int, privateKeyFile string) {
 
 		err := r.ParseForm()
 		if err != nil {
-			http.Error(w, "Expected form-urlencoded request body", http.StatusUnsupportedMediaType)
+			http.Error(w, "Expected application/x-www-form-urlencoded request body", http.StatusUnsupportedMediaType)
 			return
 		}
 
@@ -26,17 +26,17 @@ func daemon(ip string, port int, privateKeyFile string) {
 		log.Printf("Received request from %s with envelope %s", r.RemoteAddr, envelope[0:min(len(envelope), 32)])
 
 		if !isEnvelope(envelope) {
-			http.Error(w, "Expected envelope=ENC[NACL,...] parameter", http.StatusBadRequest)
+			http.Error(w, "Expected envelope=ENC[NACL,...] form parameter", http.StatusBadRequest)
 			return
 		}
 
 		encrypted, err := parseEnvelope(envelope)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to decode envelope (%s)", err), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("Failed to parse envelope (%s)", err), http.StatusBadRequest)
 			return
 		}
 
-		plaintext, err := decryptBox(publicKey, privateKey, encrypted)
+		plaintext, err := decrypt(publicKey, privateKey, encrypted)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("%s", err), http.StatusBadRequest)
 			return

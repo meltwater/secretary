@@ -34,7 +34,7 @@ func main() {
 			Use:   "encrypt",
 			Short: "Encrypt data",
 			Run: func(cmd *cobra.Command, args []string) {
-				encrypt(publicKeyFile, privateKeyFile)
+				encryptCommand(publicKeyFile, privateKeyFile)
 			},
 		}
 
@@ -51,7 +51,7 @@ func main() {
 			Use:   "decrypt",
 			Short: "Decrypt data",
 			Run: func(cmd *cobra.Command, args []string) {
-				decrypt(publicKeyFile, privateKeyFile, decryptEnv)
+				decryptCommand(publicKeyFile, privateKeyFile, decryptEnv)
 			},
 		}
 
@@ -70,7 +70,7 @@ func main() {
 			Use:   "daemon",
 			Short: "Start the REST service that decrypts secrets",
 			Run: func(cmd *cobra.Command, args []string) {
-				daemon(daemonIp, daemonPort, privateKeyFile)
+				daemonCommand(daemonIp, daemonPort, privateKeyFile)
 			},
 		}
 
