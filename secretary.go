@@ -14,14 +14,6 @@ import (
 	"path/filepath"
 )
 
-const insecureSenderPrivateKey = `-----BEGIN NACL PRIVATE KEY-----
-CaWsEI/8p6h4814+eRwmaHPAYdlEoWsb2Ln3vtSP+js=
------END NACL PRIVATE KEY-----`
-
-const insecureSenderPublicKey = `-----BEGIN NACL PUBLIC KEY-----
-WzTsRnSSWYLRz7sLTgcr8ApwUYAETBpzdeZkBXH+9Us=
------END NACL PUBLIC KEY-----`
-
 type CommandError struct {
 	msg string // description of error
 	err error  // inner error
@@ -62,25 +54,17 @@ func pemRead(path string) *[32]byte {
 	return asKey(pemBlock.Bytes)
 }
 
-func genkey(publicKeyFile string, privateKeyFile string) error {
+func genkey(publicKeyFile string, privateKeyFile string) {
 	publicKey, privateKey, err := box.GenerateKey(rand.Reader)
 	check(err, "Failed to generate key pair")
 
 	pemWrite(publicKey[:], publicKeyFile, "NACL PUBLIC KEY", 0644)
 	pemWrite(privateKey[:], privateKeyFile, "NACL PRIVATE KEY", 0600)
-	return nil
 }
 
 func encrypt(receiverPublicKeyFile string, senderPrivateKeyFile string) {
 	receiverPublicKey := pemRead(receiverPublicKeyFile)
-
-	var senderPrivateKey *[32]byte
-	if len(senderPrivateKeyFile) > 0 {
-		senderPrivateKey = pemRead(senderPrivateKeyFile)
-	} else {
-		pemBlock, _ := pem.Decode([]byte(insecureSenderPrivateKey))
-		senderPrivateKey = asKey(pemBlock.Bytes)
-	}
+	senderPrivateKey := pemRead(senderPrivateKeyFile)
 
 	var nonce [24]byte
 	_, err := io.ReadFull(rand.Reader, nonce[:])
@@ -94,14 +78,7 @@ func encrypt(receiverPublicKeyFile string, senderPrivateKeyFile string) {
 }
 
 func decrypt(senderPublicKeyFile string, receiverPrivateKeyFile string) {
-	var senderPublicKey *[32]byte
-	if len(senderPublicKeyFile) > 0 {
-		senderPublicKey = pemRead(senderPublicKeyFile)
-	} else {
-		pemBlock, _ := pem.Decode([]byte(insecureSenderPublicKey))
-		senderPublicKey = asKey(pemBlock.Bytes)
-	}
-
+	senderPublicKey := pemRead(senderPublicKeyFile)
 	receiverPrivateKey := pemRead(receiverPrivateKeyFile)
 
 	envelope, err := ioutil.ReadAll(os.Stdin)
@@ -124,21 +101,18 @@ func main() {
 	rootCmd := &cobra.Command{Use: "secretary"}
 	//rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "Verbose output")
 
-	const defaultPublicKeyPath = "./keys/public_key.pem"
-	const defaultPrivateKeyPath = "./keys/private_key.pem"
-
 	// Key generation command
-	var publicKeyFile, privateKeyFile string
+	var keyPath string
 	cmdGenkey := &cobra.Command{
-		Use:   "genkey",
+		Use:   "genkeys",
 		Short: "Generate a public/private key pair",
 		Run: func(cmd *cobra.Command, args []string) {
-			genkey(publicKeyFile, privateKeyFile)
+			genkey(fmt.Sprintf("%s/master-public-key.pem", keyPath), fmt.Sprintf("%s/master-private-key.pem", keyPath))
+			genkey(fmt.Sprintf("%s/config-public-key.pem", keyPath), fmt.Sprintf("%s/config-private-key.pem", keyPath))
 		},
 	}
 
-	cmdGenkey.Flags().StringVarP(&publicKeyFile, "public-key", "", defaultPublicKeyPath, "Public key file")
-	cmdGenkey.Flags().StringVarP(&privateKeyFile, "private-key", "", defaultPrivateKeyPath, "Private key file")
+	cmdGenkey.Flags().StringVarP(&keyPath, "path", "", "./keys/", "Directory to write keys")
 	rootCmd.AddCommand(cmdGenkey)
 
 	// Encryption command
@@ -151,8 +125,8 @@ func main() {
 		},
 	}
 
-	cmdEncrypt.Flags().StringVarP(&receiverPublicKeyFile, "receiver-public-key", "", defaultPublicKeyPath, "Receiver public key file")
-	cmdEncrypt.Flags().StringVarP(&senderPrivateKeyFile, "sender-private-key", "", "", "Sender private key file")
+	cmdEncrypt.Flags().StringVarP(&receiverPublicKeyFile, "public-key", "", "./keys/master-public-key.pem", "Receiver public key file")
+	cmdEncrypt.Flags().StringVarP(&senderPrivateKeyFile, "private-key", "", "./keys/config-private-key.pem", "Sender private key file")
 	rootCmd.AddCommand(cmdEncrypt)
 
 	// Encryption command
@@ -165,8 +139,8 @@ func main() {
 		},
 	}
 
-	cmdDecrypt.Flags().StringVarP(&senderPublicKeyFile, "sender-public-key", "", "", "Sender public key file")
-	cmdDecrypt.Flags().StringVarP(&receiverPrivateKeyFile, "receiver-private-key", "", defaultPrivateKeyPath, "Receiver private key file")
+	cmdDecrypt.Flags().StringVarP(&senderPublicKeyFile, "public-key", "", "./keys/config-public-key.pem", "Sender public key file")
+	cmdDecrypt.Flags().StringVarP(&receiverPrivateKeyFile, "private-key", "", "./keys/master-private-key.pem", "Receiver private key file")
 	rootCmd.AddCommand(cmdDecrypt)
 
 	// Handle checked errors nicely

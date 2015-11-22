@@ -1,1 +1,2 @@
-https://github.com/danderson/gobox
+# Secretary
+Secrets distribution for dynamic container environments
