@@ -1,101 +1,11 @@
-package main
+package secretary
 
 import (
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/pem"
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/nacl/box"
-	"io"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 )
-
-type CommandError struct {
-	msg string // description of error
-	err error  // inner error
-}
-
-func (e *CommandError) Error() string { return e.msg }
-
-func check(err error, msg string, a ...interface{}) {
-	if err != nil {
-		panic(&CommandError{fmt.Sprintf("%s (%s)", fmt.Sprintf(msg, a...), err), err})
-	}
-}
-
-func assert(value bool, msg string, a ...interface{}) {
-	if !value {
-		panic(&CommandError{fmt.Sprintf(msg, a...), nil})
-	}
-}
-
-func asKey(data []byte) *[32]byte {
-	var key [32]byte
-	copy(key[:], data[0:32])
-	return &key
-}
-
-func pemWrite(data []byte, path string, pemType string, fileMode os.FileMode) {
-	pemData := pem.EncodeToMemory(&pem.Block{Type: pemType, Bytes: data})
-	check(os.MkdirAll(filepath.Dir(path), 0775), "Failed to create directory %s", filepath.Dir(path))
-	check(ioutil.WriteFile(path, pemData, fileMode), "Failed to write file %s", path)
-}
-
-func pemRead(path string) *[32]byte {
-	pemData, err := ioutil.ReadFile(path)
-	check(err, "Failed to read key from %s", path)
-
-	pemBlock, _ := pem.Decode(pemData)
-	assert(len(pemBlock.Bytes) == 32, "Expected key %s to be at least 32 bytes", path)
-	return asKey(pemBlock.Bytes)
-}
-
-func genkey(publicKeyFile string, privateKeyFile string) {
-	publicKey, privateKey, err := box.GenerateKey(rand.Reader)
-	check(err, "Failed to generate key pair")
-
-	pemWrite(publicKey[:], publicKeyFile, "NACL PUBLIC KEY", 0644)
-	pemWrite(privateKey[:], privateKeyFile, "NACL PRIVATE KEY", 0600)
-}
-
-func encrypt(receiverPublicKeyFile string, senderPrivateKeyFile string) {
-	receiverPublicKey := pemRead(receiverPublicKeyFile)
-	senderPrivateKey := pemRead(senderPrivateKeyFile)
-
-	var nonce [24]byte
-	_, err := io.ReadFull(rand.Reader, nonce[:])
-	check(err, "Failed generate random nonce")
-
-	plaintext, err := ioutil.ReadAll(os.Stdin)
-	check(err, "Failed to read plaintext data from standard input")
-
-	encrypted := box.Seal(nonce[:], plaintext, &nonce, receiverPublicKey, senderPrivateKey)
-	fmt.Printf("ENC[NACL,%s]", base64.RawStdEncoding.EncodeToString(encrypted))
-}
-
-func decrypt(senderPublicKeyFile string, receiverPrivateKeyFile string) {
-	senderPublicKey := pemRead(senderPublicKeyFile)
-	receiverPrivateKey := pemRead(receiverPrivateKeyFile)
-
-	envelope, err := ioutil.ReadAll(os.Stdin)
-	check(err, "Failed to read encrypted data from standard input")
-
-	encoded := envelope[9 : len(envelope)-1]
-	encrypted := make([]byte, base64.RawStdEncoding.DecodedLen(len(encoded)))
-	n, err := base64.RawStdEncoding.Decode(encrypted, encoded)
-	check(err, "Failed to decode base64 data from standard input")
-
-	var nonce [24]byte
-	copy(nonce[:], encrypted)
-	plaintext, ok := box.Open(nil, encrypted[24:n], &nonce, senderPublicKey, receiverPrivateKey)
-	assert(ok, "Decryption failed (incorrect keys?)")
-
-	os.Stdout.Write(plaintext)
-}
 
 func main() {
 	rootCmd := &cobra.Command{Use: "secretary"}
@@ -129,7 +39,7 @@ func main() {
 	cmdEncrypt.Flags().StringVarP(&senderPrivateKeyFile, "private-key", "", "./keys/config-private-key.pem", "Sender private key file")
 	rootCmd.AddCommand(cmdEncrypt)
 
-	// Encryption command
+	// Decryption command
 	var senderPublicKeyFile, receiverPrivateKeyFile string
 	cmdDecrypt := &cobra.Command{
 		Use:   "decrypt",
