@@ -6,39 +6,30 @@ import (
 	"net/http"
 )
 
-func daemonCommand(ip string, port int, privateKeyFile string) {
-	publicKey := pemRead("./keys/config-public-key.pem")
-	privateKey := pemRead(privateKeyFile)
+func errorResponse(w http.ResponseWriter, r *http.Request, err interface{}, statusCode int) {
+	log.Printf("HTTP %d from %s: %s", statusCode, r.RemoteAddr, err)
+	http.Error(w, fmt.Sprintf("%s", err), statusCode)
+}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+func daemonCommand(ip string, port int, decryptor Decryptor) {
+	http.HandleFunc("/v1/decrypt", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
-			http.Error(w, "Expected POST method", http.StatusMethodNotAllowed)
+			errorResponse(w, r, "Expected POST method", http.StatusMethodNotAllowed)
 			return
 		}
 
 		err := r.ParseForm()
 		if err != nil {
-			http.Error(w, "Expected application/x-www-form-urlencoded request body", http.StatusUnsupportedMediaType)
+			errorResponse(w, r, "Expected application/x-www-form-urlencoded request body", http.StatusUnsupportedMediaType)
 			return
 		}
 
 		envelope := r.Form.Get("envelope")
-		log.Printf("Received request from %s with envelope %s", r.RemoteAddr, envelope[0:min(len(envelope), 32)])
+		log.Printf("Received request from %s with envelope %s", r.RemoteAddr, ellipsis(envelope, 64))
 
-		if !isEnvelope(envelope) {
-			http.Error(w, "Expected envelope=ENC[NACL,...] form parameter", http.StatusBadRequest)
-			return
-		}
-
-		encrypted, err := parseEnvelope(envelope)
+		plaintext, err := decryptor.Decrypt(envelope)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to parse envelope (%s)", err), http.StatusBadRequest)
-			return
-		}
-
-		plaintext, err := decrypt(publicKey, privateKey, encrypted)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("%s", err), http.StatusBadRequest)
+			errorResponse(w, r, err, http.StatusBadRequest)
 			return
 		}
 

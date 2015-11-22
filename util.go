@@ -79,7 +79,7 @@ func isEnvelope(envelope string) bool {
 
 func parseEnvelope(envelope string) ([]byte, error) {
 	if !isEnvelope(envelope) {
-		return nil, errors.New("Missing ENC[NACL,...] structure")
+		return nil, errors.New("Expected ENC[NACL,...] structured string")
 	}
 
 	encoded := envelope[9 : len(envelope)-1]
@@ -90,4 +90,13 @@ func parseEnvelope(envelope string) ([]byte, error) {
 	}
 
 	return encrypted[0:n], nil
+}
+
+func ellipsis(input string, maxLength int) string {
+	trimmed := strings.TrimSpace(input)
+	if len(trimmed) > (maxLength - 3) {
+		return fmt.Sprintf("%s...", strings.TrimSpace(trimmed[0:(maxLength-3)]))
+	}
+
+	return trimmed
 }

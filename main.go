@@ -9,7 +9,6 @@ import (
 
 func main() {
 	rootCmd := &cobra.Command{Use: "secretary"}
-	//rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "Verbose output")
 
 	// Key generation command
 	{
@@ -45,18 +44,32 @@ func main() {
 
 	// Decryption command
 	{
-		var publicKeyFile, privateKeyFile string
+		var publicKeyFile, privateKeyFile, daemonUrl string
 		var decryptEnv bool
 		cmdDecrypt := &cobra.Command{
 			Use:   "decrypt",
 			Short: "Decrypt data",
 			Run: func(cmd *cobra.Command, args []string) {
-				decryptCommand(publicKeyFile, privateKeyFile, decryptEnv)
+				publicKey := pemRead(publicKeyFile)
+				privateKey := pemRead(privateKeyFile)
+				var decryptor Decryptor
+				if len(daemonUrl) > 0 {
+					decryptor = NewRemoteDecryptor(daemonUrl)
+				} else {
+					decryptor = NewKeyDecryptor(publicKey, privateKey)
+				}
+
+				if decryptEnv {
+					decryptEnvironment(decryptor)
+				} else {
+					decryptStream(decryptor)
+				}
 			},
 		}
 
 		cmdDecrypt.Flags().StringVarP(&publicKeyFile, "public-key", "", "./keys/config-public-key.pem", "Config public key file")
 		cmdDecrypt.Flags().StringVarP(&privateKeyFile, "private-key", "", "./keys/master-private-key.pem", "Master private key file")
+		cmdDecrypt.Flags().StringVarP(&daemonUrl, "daemon-url", "d", "", "URL of secretary daemon, e.g. https://master:8080")
 		cmdDecrypt.Flags().BoolVarP(&decryptEnv, "decrypt-env", "e", false, "Decrypt environment variables")
 		rootCmd.AddCommand(cmdDecrypt)
 	}
@@ -70,7 +83,10 @@ func main() {
 			Use:   "daemon",
 			Short: "Start the REST service that decrypts secrets",
 			Run: func(cmd *cobra.Command, args []string) {
-				daemonCommand(daemonIp, daemonPort, privateKeyFile)
+				publicKey := pemRead("./keys/config-public-key.pem")
+				privateKey := pemRead(privateKeyFile)
+				decryptor := NewKeyDecryptor(publicKey, privateKey)
+				daemonCommand(daemonIp, daemonPort, decryptor)
 			},
 		}
 
