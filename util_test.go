@@ -38,3 +38,9 @@ func TestAssert(t *testing.T) {
 
 	assert(false, "Test Error")
 }
+
+func TestIsEnvelope(t *testing.T) {
+	a.True(t, isEnvelope("ENC[NACL,abc]"))
+	a.False(t, isEnvelope("ENC[NACL,abc"))
+	a.False(t, isEnvelope("NC[NACL,abc]"))
+}

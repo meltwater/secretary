@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Checked exception thrown on runtime errors
@@ -17,9 +20,16 @@ type CommandError struct {
 func (e *CommandError) Error() string { return e.msg }
 
 // Panics with a message if the given error isn't nil
-func check(err error, msg string, a ...interface{}) {
+func check(err error, a ...interface{}) {
 	if err != nil {
-		panic(&CommandError{fmt.Sprintf("%s (%s)", fmt.Sprintf(msg, a...), err), err})
+		var msg string
+		if len(a) > 0 {
+			msg = fmt.Sprintf("%s (%s)", fmt.Sprintf(a[0].(string), a[1:]...), err)
+		} else {
+			msg = fmt.Sprintf("%s", err)
+		}
+
+		panic(&CommandError{msg, err})
 	}
 }
 
@@ -28,6 +38,15 @@ func assert(condition bool, msg string, a ...interface{}) {
 	if !condition {
 		panic(&CommandError{fmt.Sprintf(msg, a...), nil})
 	}
+}
+
+// Min value
+func min(a int, b int) int {
+	if a <= b {
+		return a
+	}
+
+	return b
 }
 
 // Converts a byte slice to the [32]byte expected by NaCL
@@ -52,4 +71,23 @@ func pemRead(path string) *[32]byte {
 	pemBlock, _ := pem.Decode(pemData)
 	assert(len(pemBlock.Bytes) == 32, "Expected key %s to be at least 32 bytes", path)
 	return asKey(pemBlock.Bytes)
+}
+
+func isEnvelope(envelope string) bool {
+	return strings.HasPrefix(envelope, "ENC[NACL,") && strings.HasSuffix(envelope, "]")
+}
+
+func parseEnvelope(envelope string) ([]byte, error) {
+	if !isEnvelope(envelope) {
+		return nil, errors.New("Missing ENC[NACL,...] structure")
+	}
+
+	encoded := envelope[9 : len(envelope)-1]
+	encrypted := make([]byte, base64.StdEncoding.DecodedLen(len(encoded)))
+	n, err := base64.StdEncoding.Decode(encrypted, []byte(encoded))
+	if err != nil {
+		return nil, err
+	}
+
+	return encrypted[0:n], nil
 }
