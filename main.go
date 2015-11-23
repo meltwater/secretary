@@ -17,8 +17,13 @@ func main() {
 			Use:   "genkeys",
 			Short: "Generate a public/private key pair",
 			Run: func(cmd *cobra.Command, args []string) {
-				genkey(fmt.Sprintf("%s/master-public-key.pem", keyPath), fmt.Sprintf("%s/master-private-key.pem", keyPath))
-				genkey(fmt.Sprintf("%s/config-public-key.pem", keyPath), fmt.Sprintf("%s/config-private-key.pem", keyPath))
+				if len(args) == 0 {
+					args = []string{"master", "config"}
+				}
+
+				for _, name := range args {
+					genkey(fmt.Sprintf("%s/%s-public-key.pem", keyPath, name), fmt.Sprintf("%s/%s-private-key.pem", keyPath, name))
+				}
 			},
 		}
 

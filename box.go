@@ -26,17 +26,32 @@ func asKey(data []byte) (*[32]byte, error) {
 	return &key, nil
 }
 
-// Serialize a NaCL key to a PEM file
-func pemWrite(key *[32]byte, path string, pemType string, fileMode os.FileMode) {
-	pemData := pem.EncodeToMemory(&pem.Block{Type: pemType, Bytes: key[:]})
-	check(os.MkdirAll(filepath.Dir(path), 0775), "Failed to create directory %s", filepath.Dir(path))
-	check(ioutil.WriteFile(path, pemData, fileMode), "Failed to write file %s", path)
+// Encode key to a PEM string
+func pemEncode(key *[32]byte, pemType string) string {
+	return string(pem.EncodeToMemory(&pem.Block{Type: pemType, Bytes: key[:]}))
 }
 
 // Decode a PEM string
 func pemDecode(encoded string) (*[32]byte, error) {
-	pemBlock, _ := pem.Decode([]byte(encoded))
+	mangled := strings.TrimSpace(encoded)
+
+	if !strings.HasPrefix(mangled, "-----BEGIN") {
+		mangled = fmt.Sprintf("-----BEGIN KEY-----\n%s\n-----END KEY-----", mangled)
+	}
+
+	pemBlock, _ := pem.Decode([]byte(mangled))
+	if pemBlock == nil {
+		return nil, errors.New("Failed to decode PEM block")
+	}
+
 	return asKey(pemBlock.Bytes)
+}
+
+// Serialize a NaCL key to a PEM file
+func pemWrite(key *[32]byte, path string, pemType string, fileMode os.FileMode) {
+	pemData := pemEncode(key, pemType)
+	check(os.MkdirAll(filepath.Dir(path), 0775), "Failed to create directory %s", filepath.Dir(path))
+	check(ioutil.WriteFile(path, []byte(pemData), fileMode), "Failed to write file %s", path)
 }
 
 // Deserialize a PEM file to a NaCL key
