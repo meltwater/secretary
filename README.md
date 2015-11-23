@@ -9,3 +9,23 @@ Secrets distribution for dynamic container environments
 * Sign/encrypt query parameters in decrypt request to daemon (pack all of them into envelope)
 * Setuid secretary-cgi that decrypts the master key to avoid 
   giving `secretary daemon` direct access to master private key.
+
+## Examples
+
+```
+# One level encryption for writing into deployment config files
+echo -n secret | ./secretary encrypt
+
+# Two level deployment encryption for writing into runtime service config
+echo -n secret | ./secretary encrypt | ./secretary encrypt --public-key=./keys/config-public-key.pem
+
+# Decrypt one level encryption
+echo <encrypted> | ./secretary decrypt
+
+# Decrypt two level encryption
+echo <encrypted> | ./secretary decrypt --private-key=./keys/config-private-key.pem | ./secretary decrypt
+
+# Decrypt two level using daemon
+./secretary daemon
+echo <encrypted> | ./secretary decrypt --private-key=./keys/config-private-key.pem | ./secretary decrypt
+```

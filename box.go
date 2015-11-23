@@ -169,15 +169,13 @@ func NewRemoteCrypto(
 
 func (self *RemoteCrypto) Decrypt(envelope string) ([]byte, error) {
 	// Authenticate with config key and decrypt with service key
-	/*
-		configEnvelope, err := decryptEnvelope(self.ConfigKey, self.PrivateKey, envelope)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Failed to decrypt using service key (%s)", err))
-		}
-	*/
+	configEnvelope, err := decryptEnvelope(self.ConfigKey, self.PrivateKey, envelope)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to decrypt secret parameter using config key and private service key (%s)", err))
+	}
 
 	// Encrypt with service key and send to daemon
-	serviceEnvelope, err := encryptEnvelope(self.MasterKey, self.PrivateKey, []byte(envelope) /*configEnvelope*/)
+	serviceEnvelope, err := encryptEnvelope(self.MasterKey, self.PrivateKey, configEnvelope)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +193,7 @@ func (self *RemoteCrypto) Decrypt(envelope string) ([]byte, error) {
 	// Decrypt response using application key
 	plaintext, err := decryptEnvelope(self.MasterKey, self.PrivateKey, string(response))
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to decrypt daemon response (%s)", err))
+		return nil, errors.New(fmt.Sprintf("Failed to decrypt daemon response using master key and private service key (%s)", err))
 	}
 
 	return plaintext, nil
