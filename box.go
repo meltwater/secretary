@@ -9,7 +9,6 @@ import (
 	"golang.org/x/crypto/nacl/box"
 	"io"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,6 +22,17 @@ func asKey(data []byte) (*[32]byte, error) {
 
 	var key [32]byte
 	copy(key[:], data[0:32])
+	return &key, nil
+}
+
+// Converts a byte slice to the [24]byte expected by NaCL
+func asNonce(data []byte) (*[24]byte, error) {
+	if len(data) != 24 {
+		return nil, errors.New("Expected a 24 byte nonce")
+	}
+
+	var key [24]byte
+	copy(key[:], data[0:24])
 	return &key, nil
 }
 
@@ -64,6 +74,28 @@ func pemRead(path string) *[32]byte {
 	return key
 }
 
+// Find a key in a candidate list of env variable keys and filenames
+func findKey(locations ...string) *[32]byte {
+	for _, location := range locations {
+		if location == "" {
+			continue
+		}
+
+		encoded := os.Getenv(location)
+		if encoded != "" {
+			key, err := pemDecode(encoded)
+			check(err, "Failed to decode key in $%s", location)
+			return key
+		}
+
+		if _, err := os.Stat(location); err == nil {
+			return pemRead(location)
+		}
+	}
+
+	return nil
+}
+
 func decode(encoded string) ([]byte, error) {
 	message := make([]byte, base64.StdEncoding.DecodedLen(len(encoded)))
 	n, err := base64.StdEncoding.Decode(message, []byte(encoded))
@@ -87,6 +119,15 @@ func decodeKey(encoded string) (*[32]byte, error) {
 	return asKey(bytes)
 }
 
+func decodeNonce(encoded string) (*[24]byte, error) {
+	bytes, err := decode(encoded)
+	if err != nil {
+		return nil, err
+	}
+
+	return asNonce(bytes)
+}
+
 // Generates an NaCL key-pair
 func genkey(publicKeyFile string, privateKeyFile string) {
 	publicKey, privateKey, err := box.GenerateKey(rand.Reader)
@@ -96,21 +137,37 @@ func genkey(publicKeyFile string, privateKeyFile string) {
 	pemWrite(privateKey, privateKeyFile, "NACL PRIVATE KEY", 0600)
 }
 
-// Encrypt into a NaCL box
-func encrypt(publicKey *[32]byte, privateKey *[32]byte, plaintext []byte) ([]byte, error) {
+func isEnvelope(envelope string) bool {
+	return strings.HasPrefix(envelope, "ENC[NACL,") && strings.HasSuffix(envelope, "]")
+}
+
+func encryptEnvelopeNonce(publicKey *[32]byte, privateKey *[32]byte, plaintext []byte, nonce *[24]byte) (string, error) {
+	encrypted := box.Seal(nonce[:], plaintext, nonce, publicKey, privateKey)
+	return fmt.Sprintf("ENC[NACL,%s]", encode(encrypted)), nil
+}
+
+func encryptEnvelope(publicKey *[32]byte, privateKey *[32]byte, plaintext []byte) (string, error) {
 	var nonce [24]byte
 	_, err := io.ReadFull(rand.Reader, nonce[:])
 	if err != nil {
-		return nil, errors.New("Failed generate random nonce")
+		return "", errors.New("Failed generate random nonce")
 	}
 
-	return box.Seal(nonce[:], plaintext, &nonce, publicKey, privateKey), nil
+	return encryptEnvelopeNonce(publicKey, privateKey, plaintext, &nonce)
 }
 
-// Decrypts a NaCL box
-func decrypt(publicKey *[32]byte, privateKey *[32]byte, encrypted []byte) ([]byte, error) {
+func decryptEnvelopeNonce(publicKey *[32]byte, privateKey *[32]byte, envelope string) ([]byte, *[24]byte, error) {
+	if !isEnvelope(envelope) {
+		return nil, nil, errors.New("Expected ENC[NACL,...] structured string")
+	}
+
+	encrypted, err := decode(envelope[9 : len(envelope)-1])
+	if err != nil {
+		return nil, nil, err
+	}
+
 	if len(encrypted) <= 24 {
-		return nil, errors.New("Expected at least 25 bytes of encrypted data")
+		return nil, nil, errors.New("Expected at least 25 bytes of encrypted data")
 	}
 
 	var nonce [24]byte
@@ -118,98 +175,13 @@ func decrypt(publicKey *[32]byte, privateKey *[32]byte, encrypted []byte) ([]byt
 
 	plaintext, ok := box.Open(nil, encrypted[24:], &nonce, publicKey, privateKey)
 	if !ok {
-		return nil, errors.New("Failed to decrypt (incorrect keys?)")
+		return nil, nil, errors.New("Failed to decrypt (incorrect keys?)")
 	}
 
-	return plaintext, nil
-}
-
-func isEnvelope(envelope string) bool {
-	return strings.HasPrefix(envelope, "ENC[NACL,") && strings.HasSuffix(envelope, "]")
-}
-
-func encryptEnvelope(publicKey *[32]byte, privateKey *[32]byte, plaintext []byte) (string, error) {
-	encrypted, err := encrypt(publicKey, privateKey, plaintext)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("ENC[NACL,%s]", encode(encrypted)), nil
+	return plaintext, &nonce, nil
 }
 
 func decryptEnvelope(publicKey *[32]byte, privateKey *[32]byte, envelope string) ([]byte, error) {
-	if !isEnvelope(envelope) {
-		return nil, errors.New("Expected ENC[NACL,...] structured string")
-	}
-
-	encrypted, err := decode(envelope[9 : len(envelope)-1])
-	if err != nil {
-		return nil, err
-	}
-
-	return decrypt(publicKey, privateKey, encrypted)
-}
-
-// Generic decryption mechanism
-type Crypto interface {
-	Decrypt(envelope string) ([]byte, error)
-}
-
-// Decrypts using in-memory keys
-type KeyCrypto struct {
-	PublicKey, PrivateKey *[32]byte
-}
-
-func (self *KeyCrypto) Decrypt(envelope string) ([]byte, error) {
-	return decryptEnvelope(self.PublicKey, self.PrivateKey, envelope)
-}
-
-func NewKeyCrypto(publicKey *[32]byte, privateKey *[32]byte) *KeyCrypto {
-	return &KeyCrypto{PublicKey: publicKey, PrivateKey: privateKey}
-}
-
-// Decrypts using the secretary daemon
-type RemoteCrypto struct {
-	DaemonUrl, AppId, AppVersion, TaskId string
-	ConfigKey, MasterKey, PrivateKey     *[32]byte
-}
-
-func NewRemoteCrypto(
-	daemonUrl string, appId string, appVersion string, taskId string,
-	configKey *[32]byte, masterKey *[32]byte, privateKey *[32]byte) *RemoteCrypto {
-	return &RemoteCrypto{
-		DaemonUrl: daemonUrl, AppId: appId, AppVersion: appVersion, TaskId: taskId,
-		ConfigKey: configKey, MasterKey: masterKey, PrivateKey: privateKey}
-}
-
-func (self *RemoteCrypto) Decrypt(envelope string) ([]byte, error) {
-	// Authenticate with config key and decrypt with service key
-	configEnvelope, err := decryptEnvelope(self.ConfigKey, self.PrivateKey, envelope)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to decrypt secret parameter using config key and private service key (%s)", err))
-	}
-
-	// Encrypt with service key and send to daemon
-	serviceEnvelope, err := encryptEnvelope(self.MasterKey, self.PrivateKey, configEnvelope)
-	if err != nil {
-		return nil, err
-	}
-
-	// Envelope is already encrypted with service key
-	response, err := httpPostForm(fmt.Sprintf("%s/v1/decrypt", self.DaemonUrl), url.Values{
-		"appid":      {self.AppId},
-		"appversion": {self.AppVersion},
-		"taskid":     {self.TaskId},
-		"envelope":   {serviceEnvelope}})
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to decrypt using daemon (%s)", err))
-	}
-
-	// Decrypt response using application key
-	plaintext, err := decryptEnvelope(self.MasterKey, self.PrivateKey, string(response))
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to decrypt daemon response using master key and private service key (%s)", err))
-	}
-
-	return plaintext, nil
+	plaintext, _, err := decryptEnvelopeNonce(publicKey, privateKey, envelope)
+	return plaintext, err
 }

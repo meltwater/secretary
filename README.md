@@ -91,9 +91,11 @@ to a given secret. For example
 {
     "id": "/myproduct/mysubsystem/myservice"
     "env" {
-        "SERVICE_PUBLIC_KEY": "/1fbWGMTaR+lLQJnEsmxdfwWybKOpPQpyWB3FpNmOF4="
         "CONFIG_PUBLIC_KEY": "WiuMHYfHR/LHEuGb/ifiYvsN8ltAaY2qUnsbfNF/yn4="
         "MASTER_PUBLIC_KEY": "MX+S1xWkxfKlZUvzaEhBLkIVWEkwIrEaD9uKXVC5IGE="
+        "DEPLOY_PUBLIC_KEY": "0k+v11LV3SOr+XiFJ/ug0KcPPhwkXnVirmO65nAd1LI="
+        "DEPLOY_PRIVATE_KEY": "rEmz7Rt6tUnlC4TKYeNzePYg+p1ePAw4BAtfJAY4zzs="
+        "SERVICE_PUBLIC_KEY": "/1fbWGMTaR+lLQJnEsmxdfwWybKOpPQpyWB3FpNmOF4="
         "DATABASE_USERNAME": "myservice"
         "DATABASE_PASSWORD": "ENC[NACL,NVnSkhxA010D2yOWKRFog0jpUvHQzmkmKKHmqAbHAnz8oGbPEFkDfyKHQHGO7w==]"
         "DATABASE_URL": "jdbc:mysql://hostname:3306/schema"
@@ -136,7 +138,7 @@ has already been deployed to Maven as part of the software build/release process
 
 ## TODO
 
-* Test for svckey in app env by encrypting config envelope with candidate nonce and config/master keys and then string compare
+* Validate that TaskId corresponds to a running task with the given appid/appversion
 * Lighter looks for a type:pem in maven when deploying and send it along in SERVICE_PUBLIC_KEY
 * Lighter creates outer box with svc key when deploying. 
 * Lighter needs to populate CONFIG_PUBLIC_KEY/MASTER_PUBLIC_KEY

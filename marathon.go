@@ -9,14 +9,15 @@ import (
 )
 
 type MarathonAppResponse struct {
-	Id      string
-	Version string
-	Env     map[string]string
+	Id, Version string
+	Env         map[string]string
 }
 
 type MarathonApp struct {
-	ServiceKey *[32]byte
-	Env        map[string]string
+	Id, Version string
+	DeployKey   *[32]byte
+	ServiceKey  *[32]byte
+	Env         map[string]string
 }
 
 func getMarathonApp(marathonUrl string, appid string, version string) (*MarathonApp, error) {
@@ -31,19 +32,29 @@ func getMarathonApp(marathonUrl string, appid string, version string) (*Marathon
 	var app MarathonAppResponse
 	err = json.Unmarshal(body, &app)
 	if err != nil || app.Id != appid || app.Version != version {
-		return nil, errors.New(fmt.Sprintf("Failed to JSON parse Marathon response (%s)", err))
+		return nil, errors.New(fmt.Sprintf("Failed to parse Marathon JSON response (%s)", err))
 	}
 
-	// Extract the service public key
-	encodedKey, ok := app.Env["SERVICE_PUBLIC_KEY"]
+	// Extract the deploy public key
+	encodedDeployKey, ok := app.Env["DEPLOY_PUBLIC_KEY"]
 	if !ok {
-		return nil, errors.New("App is missing $SERVICE_PUBLIC_KEY in the Marathon config \"env\" section")
+		return nil, errors.New("App is missing $DEPLOY_PUBLIC_KEY in the Marathon config \"env\" section")
 	}
 
-	serviceKey, err := pemDecode(encodedKey)
+	deployKey, err := pemDecode(encodedDeployKey)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to decode $SERVICE_PUBLIC_KEY (%s)", err))
+		return nil, errors.New(fmt.Sprintf("Failed to decode $DEPLOY_PUBLIC_KEY (%s)", err))
 	}
 
-	return &MarathonApp{ServiceKey: serviceKey, Env: app.Env}, nil
+	// Extract the optional service public key
+	encodedServiceKey, ok := app.Env["SERVICE_PUBLIC_KEY"]
+	var serviceKey *[32]byte
+	if ok {
+		serviceKey, err = pemDecode(encodedServiceKey)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("Failed to decode $SERVICE_PUBLIC_KEY (%s)", err))
+		}
+	}
+
+	return &MarathonApp{Id: app.Id, Version: app.Version, DeployKey: deployKey, ServiceKey: serviceKey, Env: app.Env}, nil
 }
