@@ -1,88 +1,146 @@
 # Secretary
-Secrets distribution for dynamic container environments
+Secrets management and distribution for dynamic container environments. 
 
-## Description
+Uses Marathon as the source of truth about what secrets a service can access and 
+how to authenticate each service. Secrets are never stored on disk or visible 
+outside the service container.
 
-It uses Marathon as the source of truth about what service can access what secret and uses Marathon to find out the public key of an application.
+## System Components
 
-So it can authenticate the service asking for the secret. It should be very secure and also at least as easy to use as heira-yaml.
+- *config repo* containing environment specific config, public keys and encrypted secrets.
+- `secretary` binary embedded into service Docker images and with access to *service-private-key*.
+- `secretary daemon` running on master nodes behind a load balancer and with *master-private-key*.
 
-It is more secure than heira-yaml since secrets are never stored on disk or visible outside the container.
+## Key Management
+The *master* and *config* key pairs are created once and for each environment using 
+`secretary genkeys`. Transfer all the keys to master nodes including the highly 
+sensitive *master-private-key*. 
 
-## How does it also solves the initial secret problem ?
+Store *master-public-key* and *config private/public key* in the *config repo* together
+with other environment config and encrypted secrets. This enables users with access to the
+*config repo* to encrypt secrets and store them in the config.
 
-The application docker image embeds a private key that is root-readable, read by the docker container start script that asks secretary-daemon for secrets and then the app (unpriv user) can't access the private key.
+At service build time generate a service key using `secretary genkeys service`. Each docker
+image embeds the *service-private-key* that is `chmod 0600` root-readable and rolled on 
+each image build/release. It's read by `secretary` running at container startup which 
+then asks secretary-daemon for plaintext secrets. The secrets are injected into the environment
+and never written to disk. Service processes should be started as an unprivileged users to 
+avoid them later accessing the *service-private-key*.
 
-The secrets are encrypted two times, inner box is with secretary-daemon master key, outer level with application key.
+The *service key* is generated at build/release time and *service-private-key* stored 
+in Docker image. The *service-public-key* deployed to Maven/Nexus/Artifactory so it's 
+available to e.g. [Lighter](https://github.com/meltwater/lighter) at deployment time.
 
-The app public key is deployed to Nexus and retrieved by [Lighter](https://github.com/meltwater/lighter) at deployment time.
+If the *config-private-key* used for signing encrypted secrets is stored outside *config repo*
+then someone else with access to that needs to encrypt every secret.
 
-## What Steps are needed to get the plaintext password of mysql for example
+## Initial Secret Problem?
+Secrets are encrypted two times using [NaCL](https://godoc.org/golang.org/x/crypto/nacl/box). 
+The inner box is encrypted with the *master-public-key* and the outer level with 
+*service-public-key*. The inner box is stored in the *config repo* and the outer box is
+automatically created at deployment time.
 
-There's 3 things that are needed to get the plaintext :
+The *service-public-key* is deployed to Maven and retrieved by [Lighter](https://github.com/meltwater/lighter) 
+at deployment time. Lighter uses the *service-public-key* to create the outer encryption box at 
+deployment time.
 
-- app private key
-- secret from config repo
-- network access
+## What is needed to get the secrets?
 
-with vault/keywhiz there's only 2 things needed :
+In the runtime env:
 
-- token from config repo
-- network access
+- Outer encryption box from runtime config (through e.g. Marathon API)
+- Service private key from Docker image
+- Network access to `secretary daemon`
 
-## System components
+Or with access to the *config repo*:
 
-## Data model
-
-The master/config keys are created once and for each environment using "secretary genkeys"
-
-The master private key is stored on master nodes
-
-The config key stored in marathon-site repo
-
-The app key is generated at app build time, the private app key stored in image and the public app key deployed to Nexus/Maven.
-
-The app keys can be generated at any time and they're rolled up for each app build. So every time the app builds, it gets a new key.
-
-The config public/private keys and the master public key are stored in marathon-site, so anyone can encrypt secrets and put them into marathon-site
-
-If the config private key (used for signing the encrypted secrets) isn't stored in marathon-site then someone else with access to that private key needs to encrypt the secrets
-
-## Setup
-
-## Examples
-
-## Contributing
-
-## License
-
-
-
-## TODO
-
-* Encrypt with svc key when deploying. Test for svckey in app env by encryption configenvelope with candidate nonce and config/master keys and then string compare
-* Lighter looks for a type:pem in maven when deploying and send it along in service_public_key
-* Needs to declare as insecure service to get autogenerated svckey by lighter. Error if enc envvar present by no key in maven or insecure deckared
-* Sign/encrypt query parameters in decrypt request to daemon (pack all of them into envelope)
-* Setuid secretary-cgi that decrypts the master key to avoid
-  giving `secretary daemon` direct access to master private key.
+- Inner box from *config repo*
+- Master private key from master nodes
 
 ## Examples
 
 ```
+# Generate master and config key pairs
+./secretary genkeys
+
+# Generate an example service key
+./secretary genkeys myservice
+
 # One level encryption for writing into deployment config files
 echo -n secret | ./secretary encrypt
 
 # Two level deployment encryption for writing into runtime service config
-echo -n secret | ./secretary encrypt | ./secretary encrypt --public-key=./keys/config-public-key.pem
+echo -n secret | ./secretary encrypt | ./secretary encrypt --public-key=./keys/myservice-public-key.pem
 
 # Decrypt one level encryption
 echo <encrypted> | ./secretary decrypt
 
 # Decrypt two level encryption
-echo <encrypted> | ./secretary decrypt --private-key=./keys/config-private-key.pem | ./secretary decrypt
+echo <encrypted> | ./secretary decrypt --private-key=./keys/myservice-private-key.pem | ./secretary decrypt
 
-# Decrypt two level using daemon
-./secretary daemon
-echo <encrypted> | ./secretary decrypt --private-key=./keys/config-private-key.pem | ./secretary decrypt
+# Decrypt two level using daemon. Note that this will only work inside a container deployed 
+# with Marathon and with the app config setup like in the example. 
+echo <encrypted> | ./secretary decrypt --private-key=./keys/myservice-private-key.pem -s http://secretary:5070
 ```
+
+# Secretary Daemon with Marathon 
+The `secretary daemon` uses Marathon to authenticate a service and validate that it has access
+to a given secret. For example
+
+```
+{
+    "id": "/myproduct/mysubsystem/myservice"
+    "env" {
+        "SERVICE_PUBLIC_KEY": "/1fbWGMTaR+lLQJnEsmxdfwWybKOpPQpyWB3FpNmOF4="
+        "CONFIG_PUBLIC_KEY": "WiuMHYfHR/LHEuGb/ifiYvsN8ltAaY2qUnsbfNF/yn4="
+        "MASTER_PUBLIC_KEY": "MX+S1xWkxfKlZUvzaEhBLkIVWEkwIrEaD9uKXVC5IGE="
+        "DATABASE_USERNAME": "myservice"
+        "DATABASE_PASSWORD": "ENC[NACL,NVnSkhxA010D2yOWKRFog0jpUvHQzmkmKKHmqAbHAnz8oGbPEFkDfyKHQHGO7w==]"
+        "DATABASE_URL": "jdbc:mysql://hostname:3306/schema"
+    }
+}
+```
+
+## Config
+Per-environment service config should be stored in a *config repo*. For example as suggested
+by [Lighter](https://github.com/meltwater/lighter) when using it to automated Marathon deployments.
+
+The *master-public-key*, *config-public-key* and *config-private-key* should be stored in this
+repository for each environment, for example in "./keys/*.pem".
+
+ * Encrypt the plaintext secret with `secretary encrypt`. This defaults to encrypt with 
+   *master-public-key* and sign with *config-private-key* and produces an `ENC[NACL, ..]` *envelope*.
+
+## Deployment
+[Lighter](https://github.com/meltwater/lighter) automates this part when *service-public-key*
+has already been deployed to Maven as part of the software build/release process.
+
+ * Retrieve *service-public-key*
+ * Encrypt the *envelope* again using the *service-public-key* and sign with *config-private-key*
+ * Deploy app config containing the re-encrypted `DATABASE_PASSWORD` to Marathon
+
+## Container Startup
+
+ * `eval $(secretary decrypt -e -s http://secretary:5070 --private-key=/path/to/myservice-private-key.pem)`
+ * *secretary client* running in the container decrypts the first level using *myservice-private-key*
+   and authenticates with *config-public-key*.
+ * *client* asks the *secretary daemon* for the `DATABASE_PASSWORD` secret to be decrypted. This
+   exchange is encrypted/authenticated using *master-public-key* and *myservice-private-key*.
+ * *daemon* retrieves `SERVICE_PUBLIC_KEY` from Marathon and uses it to authenticate the service. 
+ * *daemon* validates that the service really has access to the given secret by checking the 
+   `env` segment of its Marathon config.
+ * *daemon* decrypts the secret using *master-private-key* and authenticates with *config-public-key*.
+ * *daemon* sends the secret back to the client encrypted with *service-public-key* and signed with *master-private-key*.
+ * *client* decrypts the secret using *service-private-key* and authenticates with *master-public-key*.
+ * *client* outputs a bash `export DATABASE_PASSWORD=secret` fragment that is sourced into the service environment.
+
+## TODO
+
+* Test for svckey in app env by encrypting config envelope with candidate nonce and config/master keys and then string compare
+* Lighter looks for a type:pem in maven when deploying and send it along in SERVICE_PUBLIC_KEY
+* Lighter creates outer box with svc key when deploying. 
+* Lighter needs to populate CONFIG_PUBLIC_KEY/MASTER_PUBLIC_KEY
+* Needs to declare as insecure service to get autogenerated svckey by lighter. Error if enc envvar present by no key in maven or insecure declared
+* Sign/encrypt query parameters in decrypt request to daemon (pack all of them into envelope)
+* Setuid secretary-cgi that decrypts the master key to avoid
+  giving `secretary daemon` direct access to master private key.
