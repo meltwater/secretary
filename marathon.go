@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/url"
@@ -36,16 +35,15 @@ func getMarathonApp(marathonUrl string, appid string, version string) (*Marathon
 	}
 
 	// Extract the service public key
-	encoded, ok := app.Env["SERVICE_PUBLIC_KEY"]
+	encodedKey, ok := app.Env["SERVICE_PUBLIC_KEY"]
 	if !ok {
 		return nil, errors.New("App is missing $SERVICE_PUBLIC_KEY in the Marathon config \"env\" section")
 	}
 
-	pemBlock, _ := pem.Decode([]byte(fmt.Sprintf("-----BEGIN NACL PUBLIC KEY-----\n%s\n-----END NACL PUBLIC KEY-----", encoded))) //decodeKey(encoded)
-	publicKey, err := asKey(pemBlock.Bytes)
+	serviceKey, err := pemDecode(encodedKey)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to decode $SERVICE_PUBLIC_KEY (%s)", err))
 	}
 
-	return &MarathonApp{ServiceKey: publicKey, Env: app.Env}, nil
+	return &MarathonApp{ServiceKey: serviceKey, Env: app.Env}, nil
 }

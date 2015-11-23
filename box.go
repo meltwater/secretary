@@ -33,13 +33,18 @@ func pemWrite(key *[32]byte, path string, pemType string, fileMode os.FileMode) 
 	check(ioutil.WriteFile(path, pemData, fileMode), "Failed to write file %s", path)
 }
 
+// Decode a PEM string
+func pemDecode(encoded string) (*[32]byte, error) {
+	pemBlock, _ := pem.Decode([]byte(encoded))
+	return asKey(pemBlock.Bytes)
+}
+
 // Deserialize a PEM file to a NaCL key
 func pemRead(path string) *[32]byte {
-	pemData, err := ioutil.ReadFile(path)
+	encoded, err := ioutil.ReadFile(path)
 	check(err, "Failed to read key from %s", path)
 
-	pemBlock, _ := pem.Decode(pemData)
-	key, err := asKey(pemBlock.Bytes)
+	key, err := pemDecode(string(encoded))
 	check(err, "Expected key %s to be at least 32 bytes", path)
 	return key
 }
