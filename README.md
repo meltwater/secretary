@@ -1,6 +1,7 @@
 # Secretary
-Secretary solves the problem of secrets distribution, service authentication and 
-secrets authorization in highly dynamic container environments. 
+[Secretary](https://en.wikipedia.org/wiki/Secretary#Etymology) solves the problem of
+secrets distribution, service authentication and secrets authorization in highly 
+dynamic container environments. 
 
 It uses Mesosphere [Marathon](https://mesosphere.github.io/marathon/) as the source
 of truth of which service can access what secrets and how to authenticate each 
