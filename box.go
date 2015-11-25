@@ -75,6 +75,7 @@ func pemRead(path string) *[32]byte {
 }
 
 // Find a key in a candidate list of env variable keys and filenames
+// Returns nil if no key is found
 func findKey(locations ...string) *[32]byte {
 	for _, location := range locations {
 		if location == "" {
@@ -94,6 +95,14 @@ func findKey(locations ...string) *[32]byte {
 	}
 
 	return nil
+}
+
+// Find a key in a candidate list of env variable keys and filenames
+// Panics if no key is found
+func requireKey(name string, locations ...string) *[32]byte {
+	key := findKey(locations...)
+	assert(key != nil, "Failed to find a %s key", name)
+	return key
 }
 
 func decode(encoded string) ([]byte, error) {

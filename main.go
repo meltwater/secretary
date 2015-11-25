@@ -57,11 +57,11 @@ func main() {
 			Short: "Decrypt data",
 			Run: func(cmd *cobra.Command, args []string) {
 				var crypto Crypto
-				configKey := findKey(configKeyFile, "CONFIG_PUBLIC_KEY", "./keys/config-public-key.pem")
-				deployKey := findKey(deployKeyFile, "DEPLOY_PRIVATE_KEY")
+				configKey := requireKey("config public", configKeyFile, "CONFIG_PUBLIC_KEY", "./keys/config-public-key.pem")
+				deployKey := requireKey("deploy private", deployKeyFile, "DEPLOY_PRIVATE_KEY", "./keys/master-private-key.pem")
 
 				if len(secretaryUrl) > 0 {
-					masterKey := findKey(masterKeyFile, "MASTER_PUBLIC_KEY", "./keys/master-public-key.pem")
+					masterKey := requireKey("master public", masterKeyFile, "MASTER_PUBLIC_KEY", "./keys/master-public-key.pem")
 					serviceKey := findKey(serviceKeyFile, "SERVICE_PRIVATE_KEY")
 					crypto = NewRemoteCrypto(
 						secretaryUrl, appId, appVersion, taskId,
