@@ -138,7 +138,6 @@ has already been deployed to Maven as part of the software build/release process
 
 ## TODO
 
-* Validate that TaskId corresponds to a running task with the given appid/appversion
 * Lighter looks for a type:pem in maven when deploying and send it along in SERVICE_PUBLIC_KEY
 * Lighter generates deploy key and sets DEPLOY_PUBLIC_KEY, DEPLOY_PRIVATE_KEY
 * Lighter creates inner box with svc key when deploying. 

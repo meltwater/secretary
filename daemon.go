@@ -143,7 +143,7 @@ func daemonCommand(listenAddress string, marathonUrl string, configPublicKey *[3
 		}
 
 		// Resolve app config version from Marathon
-		app, err := getMarathonApp(marathonUrl, appId, appVersion)
+		app, err := getMarathonApp(marathonUrl, appId, appVersion, taskId)
 		if err != nil {
 			errorResponse(w, r, err, http.StatusInternalServerError)
 			return
