@@ -169,6 +169,11 @@ variables:
 override:
   env:
     SERVICE_PUBLIC_KEY: "%{secretary.service.publickey}"
+  container:
+    volumes:
+     - containerPath: "/service/keys"
+       hostPath: "/etc/secretary/service-keys"
+       mode: "RO"
 ```
 
 ## Runtime Config
