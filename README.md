@@ -21,16 +21,17 @@ Secretary uses [NaCL](http://nacl.cr.yp.to/) boxes through the golang
 [crypto/nacl](https://godoc.org/golang.org/x/crypto/nacl/box) package. Boxes
 are encrypted and signed using modern and strong public key cryptography.
 
-Secretary uses distinct 4 key pairs for securing secrets and authenticating services.
+Secretary uses distinct 4 key pairs for encrypting secrets and authenticating 
+service instances.
 
-- *master* key is used to encrypt secrets at rest in the *config repo*. The 
-  *master-public-key* is stored in the *config repo* to allow easy configuration
-  updates. The *master-private-key* is stored securely on the data center master 
-  nodes where `secretary daemon` runs.
+- *master* key is used to encrypt secrets at rest in the *config repo* and is
+  generated for each environment. The *master-public-key* is stored in the 
+  *config repo* to allow easy configuration updates. The *master-private-key* 
+  is stored securely on the data center master nodes where `secretary daemon` runs.
 
 - *config* key pair is used to sign encrypted secrets and control who can create 
-  encrypted secrets. It's generated per-environment and stored in the *config repo*
-  to for easy configuration updates.
+  encrypted secrets. A key pair is generated for each environment and stored in 
+  the *config repo* to enable easy configuration updates.
 
 - *deploy* key pair is used to control what service can access what secrets and
   to authenticate services at runtime. It should be generated automatically at 
@@ -236,7 +237,7 @@ The complete decryption sequence could be described as
 8. *client* outputs a sh script `export DATABASE_PASSWORD='secret'` fragment that is sourced into the
    service environment.
 
-## Usage
+## Command Line Usage
 
 ```
 # Generate master and config key pairs
@@ -259,6 +260,72 @@ echo <encrypted> | ./secretary decrypt --private-key=./keys/deploy-private-key.p
 echo <encrypted> | ./secretary decrypt --private-key=./keys/deploy-private-key.pem | \
                    ./secretary decrypt --private-key=./keys/service-private-key.pem | \
                    ./secretary decrypt
+```
+
+## Secretary Daemon 
+Deploy several instances of the `secretary daemon` to trusted master nodes and create a
+load balancer in front of them to ensure high availability. The deamon defaults to
+bind to 5070/tcp.
+
+### Systemd and CoreOS/Fleet
+Create a [Systemd unit](http://www.freedesktop.org/software/systemd/man/systemd.unit.html) file 
+in **/etc/systemd/system/proxymatic.service** with contents like below. Using CoreOS and
+[Fleet](https://coreos.com/docs/launching-containers/launching/fleet-unit-files/) then
+add the X-Fleet section to schedule the unit on master nodes.
+
+```
+[Unit]
+Description=Secretary secrets distribution
+After=docker.service
+Requires=docker.service
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Environment=IMAGE=mikljohansson/secretary:latest NAME=secretary
+
+# Allow docker pull to take some time
+TimeoutStartSec=600
+
+# Restart on failures
+KillMode=none
+Restart=always
+RestartSec=15
+
+ExecStartPre=-/usr/bin/docker kill ${NAME}
+ExecStartPre=-/usr/bin/docker rm ${NAME}
+ExecStartPre=-/usr/bin/docker pull ${IMAGE}
+ExecStart=/usr/bin/docker run --name=${NAME} \
+    -p 5070:5070 \
+    -v /etc/secretary/master-keys:/keys \
+    -e MARATHON_URL=http://localhost:8080 \
+    $IMAGE
+
+ExecStop=/usr/bin/docker stop $NAME
+
+[X-Fleet]
+Global=true
+MachineMetadata=role=master
+```
+
+### Puppet Hiera
+
+Using the [garethr-docker](https://github.com/garethr/garethr-docker) module
+
+```
+classes:
+  - docker::run_instance
+
+docker::run_instance:
+  'secretary':
+    image: 'mikljohansson/secretary:latest'
+    ports:
+      - '5070:5070'
+    volumes:
+      - '/etc/secretary/master-keys:/keys'
+    env:
+      - 'MARATHON_URL=http://localhost:8080'
 ```
 
 ## TODO

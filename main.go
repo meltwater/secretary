@@ -111,7 +111,8 @@ func main() {
 			},
 		}
 
-		cmdDaemon.Flags().StringVarP(&marathonUrl, "marathon-url", "", "http://localhost:8080", "URL of Marathon")
+		cmdDaemon.Flags().StringVarP(&marathonUrl, "marathon-url", "", 
+			defaults(os.Getenv("MARATHON_URL"), "http://localhost:8080"), "URL of Marathon")
 		cmdDaemon.Flags().StringVarP(&configPublicKeyFile, "config-public-key", "", "./keys/config-public-key.pem", "Config public key file")
 		cmdDaemon.Flags().StringVarP(&configPrivateKeyFile, "config-private-key", "", "./keys/config-private-key.pem", "Config private key file")
 		cmdDaemon.Flags().StringVarP(&masterKeyFile, "master-key", "", "./keys/master-private-key.pem", "Master private key file")
