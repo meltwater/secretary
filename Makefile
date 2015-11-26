@@ -1,4 +1,4 @@
-all: get fmt build test docker
+all: get fmt build test
 
 get:
 	go get github.com/go-errors/errors
@@ -11,7 +11,8 @@ fmt:
 	go fmt ./...
 
 build:
-	 CGO_ENABLED=0 go build
+	 CGO_ENABLED=0 go build -o "secretary-`uname -s`-`uname -m`"
+	 ln -sf "secretary-`uname -s`-`uname -m`" secretary
 
 test:
 	go test -v
