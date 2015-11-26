@@ -1,4 +1,6 @@
 # Secretary
+<a href='https://travis-ci.org/mikljohansson/secretary'><img src='https://secure.travis-ci.org/mikljohansson/secretary.png?branch=master'></a>
+
 [Secretary](https://en.wikipedia.org/wiki/Secretary#Etymology) solves the problem of
 secrets distribution, service authentication and secrets authorization in highly 
 dynamic container environments. 
