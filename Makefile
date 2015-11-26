@@ -11,7 +11,15 @@ fmt:
 	go fmt ./...
 
 build:
-	go build
+	 CGO_ENABLED=0 go build
 
 test:
 	go test -v
+
+clean:
+	rm -f ./secretary
+
+docker:
+	docker build -t mikljohansson/secretary:latest .
+
+.PHONY: get fmt build test clean

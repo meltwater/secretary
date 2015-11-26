@@ -20,6 +20,10 @@ type MarathonAppResponse struct {
 	Tasks       []MarathonTaskResponse
 }
 
+type MarathonAppsResponse struct {
+	App MarathonAppResponse
+}
+
 // Marathon /v2/apps/{app_id}/versions/{version} response struct
 type MarathonVersionResponse struct {
 	Id, Version string
@@ -36,20 +40,21 @@ type MarathonApp struct {
 func getMarathonApp(marathonUrl string, appId string, appVersion string, taskId string) (*MarathonApp, error) {
 	// Validate that given taskId is actually still running (old deploy keys shouldn't be allows to access any secrets)
 	{
-		body, err := httpGet(fmt.Sprintf("%s/v2/apps/%s?embed=apps.tasks", marathonUrl,
-			strings.Replace(strings.Replace(url.QueryEscape(appId), "..", "", -1), "%2F", "/", -1)))
+		url := fmt.Sprintf("%s/v2/apps/%s?embed=apps.tasks", marathonUrl,
+			strings.Replace(strings.Replace(url.QueryEscape(appId), "..", "", -1), "%2F", "/", -1))
+		body, err := httpGet(url)
 		if err != nil {
 			return nil, err
 		}
 
-		var app MarathonAppResponse
+		var app MarathonAppsResponse
 		err = json.Unmarshal(body, &app)
-		if err != nil || app.Id != appId {
-			return nil, errors.New(fmt.Sprintf("Failed to parse Marathon JSON response (%s)", err))
+		if err != nil || app.App.Id != appId {
+			return nil, errors.New(fmt.Sprintf("Failed to parse %s Marathon JSON response (%s): %s", url, err, string(body)))
 		}
 
 		isActiveTaskid := false
-		for _, task := range app.Tasks {
+		for _, task := range app.App.Tasks {
 			if task.Id == taskId {
 				isActiveTaskid = true
 				break
@@ -62,9 +67,10 @@ func getMarathonApp(marathonUrl string, appId string, appVersion string, taskId 
 	}
 
 	// Fetch the exact config version for this running task
-	body, err := httpGet(fmt.Sprintf("%s/v2/apps/%s/versions/%s", marathonUrl,
+	url := fmt.Sprintf("%s/v2/apps/%s/versions/%s", marathonUrl,
 		strings.Replace(strings.Replace(url.QueryEscape(appId), "..", "", -1), "%2F", "/", -1),
-		url.QueryEscape(appVersion)))
+		url.QueryEscape(appVersion))
+	body, err := httpGet(url)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +78,7 @@ func getMarathonApp(marathonUrl string, appId string, appVersion string, taskId 
 	var taskVersion MarathonVersionResponse
 	err = json.Unmarshal(body, &taskVersion)
 	if err != nil || taskVersion.Id != appId || taskVersion.Version != appVersion {
-		return nil, errors.New(fmt.Sprintf("Failed to parse Marathon JSON response (%s)", err))
+		return nil, errors.New(fmt.Sprintf("Failed to parse %s Marathon JSON response (%s): %s", url, err, string(body)))
 	}
 
 	// Extract the deploy public key

@@ -41,24 +41,27 @@ func NewRemoteCrypto(
 
 func (self *RemoteCrypto) Decrypt(envelope string) ([]byte, error) {
 	// Authenticate with config key and decrypt with deploy key
-	serviceEnvelope, deployNonce, err := decryptEnvelopeNonce(self.ConfigKey, self.DeployKey, envelope)
+	requestedSecret, deployNonce, err := decryptEnvelopeNonce(self.ConfigKey, self.DeployKey, envelope)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to decrypt secret parameter using config key and deploy key (%s)", err))
 	}
 
-	var serviceNonce *[24]byte
+	var serviceNonce string
 	if self.ServiceKey != nil {
 		// Authenticate with config key and decrypt with optional service key
-		serviceEnvelope, serviceNonce, err = decryptEnvelopeNonce(self.ConfigKey, self.ServiceKey, string(serviceEnvelope))
+		serviceEnvelope, nonce, err := decryptEnvelopeNonce(self.ConfigKey, self.ServiceKey, string(requestedSecret))
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("Failed to decrypt secret parameter using config key and service key (%s)", err))
 		}
+
+		requestedSecret = serviceEnvelope
+		serviceNonce = encode(nonce[:])
 	}
 
 	message := DaemonRequest{
 		AppId: self.AppId, AppVersion: self.AppVersion, TaskId: self.TaskId,
-		RequestedSecret: string(serviceEnvelope),
-		DeployNonce:     encode(deployNonce[:]), ServiceNonce: encode(serviceNonce[:])}
+		RequestedSecret: string(requestedSecret),
+		DeployNonce:     encode(deployNonce[:]), ServiceNonce: serviceNonce}
 	encoded, err := json.Marshal(message)
 	if err != nil {
 		return nil, err
@@ -91,17 +94,29 @@ func (self *RemoteCrypto) Decrypt(envelope string) ([]byte, error) {
 	}
 
 	// Decrypt response using deploy key
-	plaintext, err := decryptEnvelope(self.MasterKey, self.DeployKey, string(response))
+	response, err = decryptEnvelope(self.MasterKey, self.DeployKey, string(response))
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to decrypt daemon response using deploy key (%s)", err))
 	}
 
 	// Decrypt response using service key
 	if self.ServiceKey != nil {
-		plaintext, err = decryptEnvelope(self.MasterKey, self.ServiceKey, string(plaintext))
+		response, err = decryptEnvelope(self.MasterKey, self.ServiceKey, string(response))
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("Failed to decrypt daemon response using service key (%s)", err))
 		}
+	}
+
+	// Unpack response struct
+	var parsedResponse DaemonResponse
+	err = json.Unmarshal(response, &parsedResponse)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to parse JSON request (%s)", err))
+	}
+
+	plaintext, err := decode(parsedResponse.PlaintextSecret)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to base64 decode plaintext secret (%s)", err))
 	}
 
 	return plaintext, nil
