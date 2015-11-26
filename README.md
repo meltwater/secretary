@@ -45,8 +45,8 @@ service instances.
   with `--privileged --volume=/:/host-root`.
 
 - The optional *service* key pair is used to authenticate Docker images or slave 
-  nodes. It could for example be stored inside the Docker image or on the host
-  slave nodes and mounted into the service container. 
+  nodes. It could for example be stored inside the Docker image or on the slave
+  node and mounted into the service container. 
 
 ### Compared to Centralized Systems?
 Some benefits of using public key cryptography compared to for example a centrally
@@ -253,22 +253,25 @@ set +o history
 # Generate master and config key pairs
 ./secretary genkeys
 
+# Generate example deploy and service key pairs
+./secretary genkeys mydeploy myservice
+
 # Generate an example service key
 ./secretary genkeys myservice
 
 # One level encryption for writing into deployment config files
 echo -n secret | ./secretary encrypt
 
-# Decrypt one level encryption (if you have access to the master-private-key)
+# Decrypt one level encryption (requires access to master-private-key)
 echo <encrypted> | ./secretary decrypt
 
-# Decrypt 2 level runtime encryption (no service key)
-echo <encrypted> | ./secretary decrypt --private-key=./keys/deploy-private-key.pem | \
+# Decrypt 3 level runtime encryption
+echo <encrypted> | ./secretary decrypt --private-key=./keys/mydeploy-private-key.pem | \
+                   ./secretary decrypt --private-key=./keys/myservice-private-key.pem | \
                    ./secretary decrypt
 
-# Decrypt 3 level runtime encryption (with service key)
-echo <encrypted> | ./secretary decrypt --private-key=./keys/deploy-private-key.pem | \
-                   ./secretary decrypt --private-key=./keys/service-private-key.pem | \
+# Decrypt 2 level runtime encryption (no service key)
+echo <encrypted> | ./secretary decrypt --private-key=./keys/mydeploy-private-key.pem | \
                    ./secretary decrypt
 ```
 
@@ -279,7 +282,7 @@ bind to 5070/tcp.
 
 ### Systemd and CoreOS/Fleet
 Create a [Systemd unit](http://www.freedesktop.org/software/systemd/man/systemd.unit.html) file 
-in **/etc/systemd/system/proxymatic.service** with contents like below. Using CoreOS and
+in **/etc/systemd/system/secretary.service** with contents like below. Using CoreOS and
 [Fleet](https://coreos.com/docs/launching-containers/launching/fleet-unit-files/) then
 add the X-Fleet section to schedule the unit on master nodes.
 
