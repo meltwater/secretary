@@ -113,12 +113,26 @@ given this config example
 *someenv/globals.yml * - stored in the Lighter *config repo*
 ```
 secretary:
-  url: "http://secretary-daemon-loadbalancer:5070"
+  url: 'https://secretary-daemon-loadbalancer:5070'
   master:
-    publickey: someenv/keys/master-public-key.pem
+    publickey: 'someenv/keys/master-public-key.pem'
   config:
-    publickey: someenv/keys/config-public-key.pem
-    privatekey: someenv/keys/config-private-key.pem
+    publickey: 'someenv/keys/config-public-key.pem'
+    privatekey: 'someenv/keys/config-private-key.pem'
+```
+
+*someenv/myservice.yml* - stored in the Lighter *config repo*
+```
+maven:
+  groupid: "com.example"
+  artifactid: "myservice"
+  classifier: "marathon"
+  resolve: [1.0.0,2.0.0)
+override:
+  env:
+    DATABASE_USERNAME: "myservice"
+    DATABASE_PASSWORD: "ENC[NACL,NVnSkhxA010D2yOWKRFog0jpUvHQzmkmKKHmqAbHAnz8oGbPEFkDfyKHQHGO7w==]"
+    DATABASE_URL: "jdbc:mysql://hostname:3306/schema"
 ```
 
 ### Service Key In Docker Image
@@ -142,15 +156,6 @@ be deployed to Maven/Nexus/Artifactory so it's available in the JSON config temp
     "SERVICE_PUBLIC_KEY": "rEmz7Rt6tUnlC4TKYeNzePYg+p1ePAw4BAtfJAY4zzs="
   }
 }
-```
-
-*someenv/myservice.yml* - stored in the Lighter *config repo*
-```
-maven:
-  groupid: "com.example"
-  artifactid: "myservice"
-  classifier: "marathon"
-  resolve: [1.0.0,2.0.0)
 ```
 
 ### Service Key In VM Image
@@ -185,14 +190,14 @@ An runtime config automatically expanded by Lighter might look like
     "id": "/myproduct/mysubsystem/myservice"
     ...
     "env" {
-        "SECRETARY_DAEMON_URL": "http://secretary-daemon-loadbalancer:5070",
+        "SECRETARY_DAEMON_URL": "https://secretary-daemon-loadbalancer:5070",
         "MASTER_PUBLIC_KEY": "MX+S1xWkxfKlZUvzaEhBLkIVWEkwIrEaD9uKXVC5IGE=",
         "CONFIG_PUBLIC_KEY": "WiuMHYfHR/LHEuGb/ifiYvsN8ltAaY2qUnsbfNF/yn4=",
         "DEPLOY_PUBLIC_KEY": "0k+v11LV3SOr+XiFJ/ug0KcPPhwkXnVirmO65nAd1LI=",
         "DEPLOY_PRIVATE_KEY": "rEmz7Rt6tUnlC4TKYeNzePYg+p1ePAw4BAtfJAY4zzs=",
         "SERVICE_PUBLIC_KEY": "/1fbWGMTaR+lLQJnEsmxdfwWybKOpPQpyWB3FpNmOF4=",
         "DATABASE_USERNAME": "myservice",
-        "DATABASE_PASSWORD": "ENC[NACL,NVnSkhxA010D2yOWKRFog0jpUvHQzmkmKKHmqAbHAnz8oGbPEFkDfyKHQHGO7w==]",
+        "DATABASE_PASSWORD": "ENC[NACL,SLXf+O9iG48uyojT0Zg30Q8/uRV8DizuDWMWtgL5PmTU54jxp5cTGrYeLpd86rA=]",
         "DATABASE_URL": "jdbc:mysql://hostname:3306/schema"
     }
     ...
