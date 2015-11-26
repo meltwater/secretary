@@ -85,7 +85,7 @@ func main() {
 		cmdDecrypt.Flags().StringVarP(&deployKeyFile, "deploy-key", "", "", "Private deploy key file")
 		cmdDecrypt.Flags().StringVarP(&serviceKeyFile, "service-key", "", "", "Private service key file")
 
-		cmdDecrypt.Flags().StringVarP(&secretaryUrl, "secretary-url", "s", "", "URL of secretary daemon, e.g. https://secretary:5070")
+		cmdDecrypt.Flags().StringVarP(&secretaryUrl, "secretary-url", "s", os.Getenv("SECRETARY_URL"), "URL of secretary daemon, e.g. https://secretary:5070")
 		cmdDecrypt.Flags().StringVarP(&appId, "app-id", "", os.Getenv("MARATHON_APP_ID"), "Marathon app id")
 		cmdDecrypt.Flags().StringVarP(&appVersion, "app-version", "", os.Getenv("MARATHON_APP_VERSION"), "Marathon app config version")
 		cmdDecrypt.Flags().StringVarP(&taskId, "task-id", "", os.Getenv("MESOS_TASK_ID"), "Mesos task id")

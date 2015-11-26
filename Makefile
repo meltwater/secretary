@@ -1,4 +1,4 @@
-all: get fmt build test
+all: get fmt build test docker
 
 get:
 	go get github.com/go-errors/errors
