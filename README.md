@@ -240,6 +240,9 @@ The complete decryption sequence could be described as
 ## Command Line Usage
 
 ```
+# Avoid secrets ending up in bash history
+set +o history
+
 # Generate master and config key pairs
 ./secretary genkeys
 
