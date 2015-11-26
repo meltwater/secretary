@@ -2,11 +2,11 @@
 <a href='https://travis-ci.org/mikljohansson/secretary'><img src='https://secure.travis-ci.org/mikljohansson/secretary.png?branch=master'></a>
 
 [Secretary](https://en.wikipedia.org/wiki/Secretary#Etymology) solves the problem of
-secrets distribution, service authentication and secrets authorization in highly 
+secrets distribution, service authentication, and secrets authorization in highly 
 dynamic container environments. 
 
-It uses Mesosphere [Marathon](https://mesosphere.github.io/marathon/) as the source
-of truth of which service can access what secrets, and how to authenticate each 
+It uses [Marathon](https://mesosphere.github.io/marathon/) as the source
+of truth to determine which service can access what secrets, and how to authenticate each 
 service. Plaintext secrets are never stored on disk or visible outside the container.
 
 ## System Components
@@ -49,8 +49,8 @@ service instances.
   node and mounted into the service container. 
 
 ### Compared to Centralized Systems?
-Some benefits of using public key cryptography compared to for example a centrally
-managed token-based systems like Vault or KeyWhiz is that 
+Benefits of using public key cryptography compared to a centrally
+managed token-based systems like [Vault](https://github.com/hashicorp/vault) or [KeyWhiz](https://github.com/square/keywhiz): 
 
 - Encryption of secrets and modifications to *config repo* can safely be performed 
   by people without needing admin access to a central system. 
@@ -60,7 +60,7 @@ managed token-based systems like Vault or KeyWhiz is that
   implies managing configuration and secrets in the same way and using the same pipeline 
   as software releases goes though.
 
-  This helps avoid mismatches between what parameters and secrets a specific sofware 
+  This helps avoid mismatches between what parameters and secrets a specific software 
   version expects, and what's actually present in the central secret/config management 
   system.
 
@@ -112,7 +112,7 @@ Generate a new *deploy* key for each deployment and encrypt each configured secr
 more. [Lighter](https://github.com/meltwater/lighter) will perform this step automatically 
 given this config example
 
-*someenv/globals.yml * - stored in the Lighter *config repo*
+*someenv/globals.yml* - stored in the Lighter *config repo*
 ```
 secretary:
   url: 'https://secretary-daemon-loadbalancer:5070'
@@ -277,7 +277,7 @@ echo <encrypted> | ./secretary decrypt --private-key=./keys/mydeploy-private-key
 
 ## Secretary Daemon 
 Deploy several instances of the `secretary daemon` to trusted master nodes and create a
-load balancer in front of them to ensure high availability. The deamon defaults to
+load balancer in front of them to ensure high availability. The daemon defaults to
 bind to 5070/tcp.
 
 ### Systemd and CoreOS/Fleet
