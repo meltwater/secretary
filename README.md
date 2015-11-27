@@ -2,82 +2,83 @@
 <a href='https://travis-ci.org/mikljohansson/secretary'><img src='https://secure.travis-ci.org/mikljohansson/secretary.png?branch=master'></a>
 
 [Secretary](https://en.wikipedia.org/wiki/Secretary#Etymology) solves the problem of
-secrets distribution, service authentication, and secrets authorization in highly 
-dynamic container environments. 
+secrets distribution and authorization in highly dynamic container environments.
 
-It uses [Marathon](https://mesosphere.github.io/marathon/) as the source
-of truth to determine which service can access what secrets, and how to authenticate each 
-service. Plaintext secrets are never stored on disk or visible outside the container.
+Secretary uses [Marathon](https://mesosphere.github.io/marathon/) to determine which
+service can access what secrets, and how to authenticate that service. This allows for
+delegation of secrets management to non-admin users and keeps configuration, secrets
+and software versions together throughout your delivery pipeline. Plaintext secrets
+are never stored on disk or visible outside the container.
 
 ## System Components
 
-- `secretary` executable embedded into service Docker images and with access to 
+- `secretary` executable embedded into service Docker images and with access to
    *deploy-private-key* and the optional *service-private-key*.
-- `secretary daemon` running on master nodes behind a load balancer and with 
+- `secretary daemon` running on master nodes behind a load balancer and with
    access to *master-private-key* and the Marathon REST API.
 - *config repo* containing environment specific config, public keys and encrypted secrets.
 
 
 ## Encryption
-Secretary uses [NaCL](http://nacl.cr.yp.to/) boxes through the golang 
+Secretary uses [NaCL](http://nacl.cr.yp.to/) boxes through the golang
 [crypto/nacl](https://godoc.org/golang.org/x/crypto/nacl/box) package. Boxes
 are encrypted and signed using modern and strong public key cryptography.
 
-Secretary uses distinct 4 key pairs for encrypting secrets and authenticating 
+Secretary uses distinct 4 key pairs for encrypting secrets and authenticating
 service instances.
 
-- *master* key is used to encrypt secrets at rest in the *config repo* and is
-  generated for each environment. The *master-public-key* is stored in the 
-  *config repo* to allow easy configuration updates. The *master-private-key* 
+- *master* key is used to encrypt the secrets stored in the *config repo* and is
+  generated for each environment. The *master-public-key* is stored in the
+  *config repo* to allow easy configuration updates. The *master-private-key*
   is stored securely on the master nodes where `secretary daemon` runs.
 
-- *config* key pair is used to sign encrypted secrets and control who can create 
-  encrypted secrets. A key pair is generated for each environment and stored in 
+- *config* key pair is used to sign encrypted secrets and control who can create
+  encrypted secrets. A key pair is generated for each environment and stored in
   the *config repo* to enable easy configuration updates.
 
 - *deploy* key pair is used to control what service can access what secrets, and
-  to authenticate services at runtime. It should be generated automatically at 
-  deployment time like e.g. [Lighter](https://github.com/meltwater/lighter) does, 
+  to authenticate services at runtime. It should be generated automatically at
+  deployment time like e.g. [Lighter](https://github.com/meltwater/lighter) does,
   and is part of the Marathon app config.
 
-  Access to the  Marathon REST API should be restricted to avoid reading out the 
+  Access to the  Marathon REST API should be restricted to avoid reading out the
   *deploy* private keys, and not to mention prevent anyone from starting containers
   with `--privileged --volume=/:/host-root`.
 
-- The optional *service* key pair is used to authenticate Docker images or slave 
-  nodes. It could for example be stored inside the Docker image or on the slave
-  node and mounted into the service container. 
+- The optional *service* key pair is used to authenticate Docker images or slave
+  nodes. The private key could be stored in the Docker image and accessed directly,
+  or in a slave node VM image and mounted into the container.
 
 ### Compared to Centralized Systems?
 Benefits of using public key cryptography compared to a centrally
-managed token-based systems like [Vault](https://github.com/hashicorp/vault) or [KeyWhiz](https://github.com/square/keywhiz): 
+managed token-based systems like [Vault](https://github.com/hashicorp/vault) or [KeyWhiz](https://github.com/square/keywhiz):
 
-- Encryption of secrets and modifications to *config repo* can safely be performed 
-  by people without needing admin access to a central system. 
+- Encryption of secrets and modifications to *config repo* can safely be performed
+  by people without needing admin access to a central system.
 
 - It's often desirable to tightly couple deployment of configuration and secrets
   with software deployments in a continuous delivery pipeline. *Configuration as code*
-  implies managing configuration and secrets in the same way and using the same pipeline 
+  implies managing configuration and secrets in the same way and using the same pipeline
   as software releases goes though.
 
-  This helps avoid mismatches between what parameters and secrets a specific software 
-  version expects, and what's actually present in the central secret/config management 
+  This helps avoid mismatches between what parameters and secrets a specific software
+  version expects, and what's actually present in the central secret/config management
   system.
 
 ### Initial Secret Problem?
-In for example token-based systems a chicken-and-egg kind of problem occurs where 
-the token that gives access to secrets needs to be securely managed. Any holder of a
-token can use it to request the plaintext secrets. A plaintext token should typically 
-not be checked into source control or it will be available to anyone with access to 
-the *config repo*. 
+In token-based systems a chicken-and-egg problem occurs where the token that gives
+access to secrets needs to be securely managed. Any holder of a token can use
+it to request the plaintext secrets. A token should typically not be checked into
+source control or it will be available to anyone with access to the *config repo*.
 
-Secretary mitigates this problem by encrypting secrets 1 time at rest and an additional
-2 times at deployment time. The innermost box is encrypted with the *master-public-key*
-and the outer levels with boxes with *service* and *deploy* keys. The inner box is stored
-in the *config repo* and the outer boxes are automatically created at deployment time.
+Secretary mitigates this problem by encrypting secrets 1 time for storing in the
+*config repo* and an additional 2 times at deployment time. The innermost box is
+encrypted with the *master-public-key* and the outer levels with boxes with *service*
+and *deploy* keys. The inner box is stored in the *config repo* and the outer boxes
+are automatically created at deployment time.
 
 Authentication at runtime is performed by `secretary daemon` talking to Marathon and using
-both *deploy* and *service* keys to make sure requesting client is actually allowed to 
+both *deploy* and *service* keys to make sure requesting client is actually allowed to
 the secret in question.
 
 ### What is needed to get the secrets?
@@ -96,20 +97,20 @@ Or with access to the *config repo*:
 
 
 ## Getting Started
-[Lighter](https://github.com/meltwater/lighter) helps automate deployments to Marathon 
+[Lighter](https://github.com/meltwater/lighter) helps automate deployments to Marathon
 and manage differences between environments. It also automates creation of *deploy* keys
 and handle the extra deployment time encryption/signing.
 
-The *master* and *config* key pairs are created once and for each environment using 
-`secretary genkeys`, which defaults to put keys into the ./keys/ directory. Provision 
-all the keys to each master nodes, including the highly sensitive *master-private-key*. 
+The *master* and *config* key pairs are created once and for each environment using
+`secretary genkeys`, which defaults to put keys into the ./keys/ directory. Provision
+all the keys to each master nodes, including the highly sensitive *master-private-key*.
 
 Store *master-public-key* and *config private/public key* in the *config repo* together
 with other environment config and encrypted secrets. This enables users with access to the
 *config repo* to encrypt secrets and store them in the config.
 
 Generate a new *deploy* key for each deployment and encrypt each configured secret once
-more. [Lighter](https://github.com/meltwater/lighter) will perform this step automatically 
+more. [Lighter](https://github.com/meltwater/lighter) will perform this step automatically
 given this config example
 
 *someenv/globals.yml* - stored in the Lighter *config repo*
@@ -138,17 +139,17 @@ override:
 ```
 
 ### Service Key In Docker Image
-The service key is optional but adds extra security. It is required by `secretary daemon` 
+The service key is optional but adds extra security. It is required by `secretary daemon`
 to authenticate a service if its Marathon app *env* defines the *$SERVICE_PUBLIC_KEY* variable.
 
 At build time generate a new *service* key using e.g. `secretary genkeys service` and embed
-the *service-private-key* into the Docker image. Ensure it's `chmod 0600` root-only readable 
+the *service-private-key* into the Docker image. Ensure it's `chmod 0600` root-only readable
 and that a new key is created for each build/release.
 
-The *service-public-key* needs to be available in the Marathon app *env* as *$SERVICE_PUBLIC_KEY* 
-so that `secretary daemon` can find it when querying the Marathon REST API. It could for example
-be deployed to Maven/Nexus/Artifactory so it's available in the JSON config template that
-[Lighter](https://github.com/meltwater/lighter) pull down at deployment time. For example
+The *service-public-key* needs to be available in the Marathon app *env* as *$SERVICE_PUBLIC_KEY*
+so that `secretary daemon` can find it when querying Marathon. A solution could be deploying
+a template JSON app config to a Maven repository and use [Lighter](https://github.com/meltwater/lighter)
+to pull it down at deployment time. For example
 
 *myservice-1.0.0-marathon.json* - deployed to Maven
 ```
@@ -163,7 +164,7 @@ be deployed to Maven/Nexus/Artifactory so it's available in the JSON config temp
 ### Service Key In VM Image
 Generate a service key using e.g. `secretary genkeys service` and embed the *service-private-key*
 into the VM image. Ensure that the *service-public-key* is available in the Marathon app *env*
-as *$SERVICE_PUBLIC_KEY*. For examle using a [Lighter](https://github.com/meltwater/lighter) config 
+as *$SERVICE_PUBLIC_KEY*. For examle using a [Lighter](https://github.com/meltwater/lighter) config
 like
 
 *someenv/globals.yml* - stored in the Lighter *config repo*
@@ -207,7 +208,7 @@ An runtime config automatically expanded by Lighter might look like
 ```
 
 ## Container Startup Sequence
-Docker images should embed the `secretary` executable. Call it at container startup to decrypt 
+Docker images should embed the `secretary` executable. Call it at container startup to decrypt
 environment variables, before starting the actual service.
 
 ```
@@ -232,14 +233,14 @@ The complete decryption sequence could be described as
 2. *client* asks the *secretary daemon* for the `DATABASE_PASSWORD` secret to be decrypted. This
    exchange is encrypted/authenticated using *master-public-key*, *deploy-private-key* and
    *service-private-key*.
-3. *daemon* retrieves `SERVICE_PUBLIC_KEY` and `DEPLOY_PUBLIC_KEY` from Marathon and uses it to 
-    authenticate the service. 
-4. *daemon* validates that the service has access to the given secret by checking the 
+3. *daemon* retrieves `SERVICE_PUBLIC_KEY` and `DEPLOY_PUBLIC_KEY` from Marathon and uses it to
+    authenticate the service.
+4. *daemon* validates that the service has access to the given secret by checking the
    `env` segment of its Marathon app config.
 5. *daemon* decrypts the secret using *master-private-key* and authenticates with *config-public-key*.
 6. *daemon* re-encrypts the plaintext secret with *service-public-key* and *deploy-public-key*,
    signed with *master-private-key* before sending it back to the client.
-7. *client* decrypts the secret using *deploy-private-key* and *service-private-key*, 
+7. *client* decrypts the secret using *deploy-private-key* and *service-private-key*,
    authenticating with *master-public-key*.
 8. *client* outputs a sh script `export DATABASE_PASSWORD='secret'` fragment that is sourced into the
    service environment.
@@ -275,13 +276,13 @@ echo <encrypted> | ./secretary decrypt --private-key=./keys/mydeploy-private-key
                    ./secretary decrypt
 ```
 
-## Secretary Daemon 
+## Secretary Daemon
 Deploy several instances of the `secretary daemon` to trusted master nodes and create a
 load balancer in front of them to ensure high availability. The daemon defaults to
 bind to 5070/tcp.
 
 ### Systemd and CoreOS/Fleet
-Create a [Systemd unit](http://www.freedesktop.org/software/systemd/man/systemd.unit.html) file 
+Create a [Systemd unit](http://www.freedesktop.org/software/systemd/man/systemd.unit.html) file
 in **/etc/systemd/system/secretary.service** with contents like below. Using CoreOS and
 [Fleet](https://coreos.com/docs/launching-containers/launching/fleet-unit-files/) then
 add the X-Fleet section to schedule the unit on master nodes.
@@ -344,7 +345,7 @@ docker::run_instance:
 ## TODO
 
 * Lighter compares existing app config by re-encrypting with
-  same nonce and checking for change (use a new nonce when 
+  same nonce and checking for change (use a new nonce when
   actually re-deploying).
 * Setuid secretary-cgi that decrypts the master key to avoid
   giving `secretary daemon` direct access to master private key.
