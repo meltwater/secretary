@@ -164,7 +164,7 @@ to pull it down at deployment time. For example
 ### Service Key In VM Image
 Generate a service key using e.g. `secretary genkeys service` and embed the *service-private-key*
 into the VM image. Ensure that the *service-public-key* is available in the Marathon app *env*
-as *$SERVICE_PUBLIC_KEY*. For examle using a [Lighter](https://github.com/meltwater/lighter) config
+as *$SERVICE_PUBLIC_KEY*. A [Lighter](https://github.com/meltwater/lighter) config could look like
 like
 
 *someenv/globals.yml* - stored in the Lighter *config repo*
