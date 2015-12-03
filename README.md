@@ -24,7 +24,7 @@ Secretary uses [NaCL](http://nacl.cr.yp.to/) boxes through the golang
 [crypto/nacl](https://godoc.org/golang.org/x/crypto/nacl/box) package. Boxes
 are encrypted and signed using modern and strong public key cryptography.
 
-Secretary uses distinct 4 key pairs for encrypting secrets and authenticating
+Secretary uses 4 distinct key pairs for encrypting secrets and authenticating
 service instances.
 
 - *master* key is used to encrypt the secrets stored in the *config repo* and is
@@ -37,24 +37,27 @@ service instances.
   the *config repo* to enable easy configuration updates.
 
 - *deploy* key pair is used to control what service can access what secrets, and
-  to authenticate services at runtime. It should be generated automatically at
-  deployment time like e.g. [Lighter](https://github.com/meltwater/lighter) does,
-  and is part of the Marathon app config.
+  to authenticate services at runtime. It is generated automatically at deployment
+  time for each service, and is part of the Marathon app config. When using
+  [Lighter](https://github.com/meltwater/lighter) it will generate this key pair 
+  automatically.
 
-  Access to the  Marathon REST API should be restricted to avoid reading out the
+  Access to the Marathon REST API should be restricted to avoid reading out the
   *deploy* private keys, and not to mention prevent anyone from starting containers
   with `--privileged --volume=/:/host-root`.
 
 - The optional *service* key pair is used to authenticate Docker images or slave
-  nodes. The private key could be stored in the Docker image and accessed directly,
-  or in a slave node VM image and mounted into the container.
+  nodes. The private key is generated at Docker or VM image build time. It could be
+  stored directly in the Docker image or in a VM image and mounted into
+  the container.
 
 ### Compared to Centralized Systems?
-Benefits of using public key cryptography compared to a centrally
-managed token-based systems like [Vault](https://github.com/hashicorp/vault) or [KeyWhiz](https://github.com/square/keywhiz):
+Benefits of using public key cryptography compared to centrally
+managed token-based systems like [Vault](https://github.com/hashicorp/vault) or
+[KeyWhiz](https://github.com/square/keywhiz)
 
-- Encryption of secrets and modifications to *config repo* can safely be performed
-  by people without needing admin access to a central system.
+- Encryption of secrets and modifications to the *config repo* can safely be 
+  performed without needing admin access to a central secrets management system.
 
 - It's often desirable to tightly couple deployment of configuration and secrets
   with software deployments in a continuous delivery pipeline. *Configuration as code*
@@ -66,20 +69,20 @@ managed token-based systems like [Vault](https://github.com/hashicorp/vault) or 
   system.
 
 ### Initial Secret Problem?
-In token-based systems a chicken-and-egg problem occurs where the token that gives
-access to secrets needs to be securely managed. Any holder of a token can use
-it to request the plaintext secrets. A token should typically not be checked into
-source control or it will be available to anyone with access to the *config repo*.
+In token-based systems a problem occurs where the token that gives access to secrets 
+needs to be securely managed. Any holder of a token can use it to request the plaintext
+secrets. A token should typically not be checked into source control or it will be
+available to anyone with access to the *config repo*.
 
 Secretary mitigates this problem by encrypting secrets 1 time for storing in the
 *config repo* and an additional 2 times at deployment time. The innermost box is
-encrypted with the *master-public-key* and the outer levels with boxes with *service*
-and *deploy* keys. The inner box is stored in the *config repo* and the outer boxes
+encrypted with the *master-public-key* and the outer boxes with *service* and 
+*deploy* keys. The inner box is stored in the *config repo* and the outer boxes
 are automatically created at deployment time.
 
-Authentication at runtime is performed by `secretary daemon` talking to Marathon and using
-both *deploy* and *service* keys to make sure requesting client is actually allowed to
-the secret in question.
+Authentication is performed at runtime by `secretary daemon`, which uses Marathon 
+to retrieve the public *deploy* and *service* keys. These keys are used to authenticate
+the client and make sure it's actually allowed to access the secret in question.
 
 ### What is needed to get the secrets?
 
@@ -98,8 +101,8 @@ Or with access to the *config repo*:
 
 ## Getting Started
 [Lighter](https://github.com/meltwater/lighter) helps automate deployments to Marathon
-and manage differences between environments. It also automates creation of *deploy* keys
-and handle the extra deployment time encryption/signing.
+and manage differences between environments. It automatically creates *deploy* keys
+and performs the deployment time encryption/signing.
 
 The *master* and *config* key pairs are created once and for each environment using
 `secretary genkeys`, which defaults to put keys into the ./keys/ directory. Provision
@@ -109,9 +112,9 @@ Store *master-public-key* and *config private/public key* in the *config repo* t
 with other environment config and encrypted secrets. This enables users with access to the
 *config repo* to encrypt secrets and store them in the config.
 
-Generate a new *deploy* key for each deployment and encrypt each configured secret once
-more. [Lighter](https://github.com/meltwater/lighter) will perform this step automatically
-given this config example
+Generate a new *deploy* key for each deployment and encrypt secrets once more using both
+*deploy* and *service* keys. [Lighter](https://github.com/meltwater/lighter) will perform 
+this step automatically given this config example
 
 *someenv/globals.yml* - stored in the Lighter *config repo*
 ```
