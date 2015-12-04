@@ -63,11 +63,11 @@ func main() {
 				if len(secretaryUrl) > 0 {
 					masterKey := requireKey("master public", masterKeyFile, "MASTER_PUBLIC_KEY", "./keys/master-public-key.pem")
 					serviceKey := findKey(serviceKeyFile, "SERVICE_PRIVATE_KEY")
-					crypto = NewRemoteCrypto(
+					crypto = newRemoteCrypto(
 						secretaryUrl, appId, appVersion, taskId,
 						configKey, masterKey, deployKey, serviceKey)
 				} else {
-					crypto = NewKeyCrypto(configKey, deployKey)
+					crypto = newKeyCrypto(configKey, deployKey)
 				}
 
 				if decryptEnv {

@@ -101,7 +101,7 @@ func findKey(locations ...string) *[32]byte {
 // Panics if no key is found
 func requireKey(name string, locations ...string) *[32]byte {
 	key := findKey(locations...)
-	assert(key != nil, "Failed to find a %s key", name)
+	assertThat(key != nil, "Failed to find a %s key", name)
 	return key
 }
 

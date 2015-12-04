@@ -2,7 +2,7 @@ package main
 
 import (
 	"crypto/rand"
-	a "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/nacl/box"
 	"testing"
 )
@@ -10,12 +10,20 @@ import (
 const privateKey = `Q1PuWtB1E7F1sLpvfBGjL+ZuH+fSCOvMDqTyRQE4GTg=`
 const publicKey = `UNlPHu0seDm6He2clMI5QHSaRGrXBdsMiWsamIF85l8=`
 
+func TestIsEnvelope(t *testing.T) {
+	assert.True(t, isEnvelope("ENC[NACL,]"))
+	assert.True(t, isEnvelope("ENC[NACL,abc]"))
+	assert.False(t, isEnvelope("ENC[NACL,"))
+	assert.False(t, isEnvelope("NC[NACL,]"))
+	assert.False(t, isEnvelope("ENC[NACL,abc"))
+}
+
 func TestEncodeDecode(t *testing.T) {
 	publicKey, _, err := box.GenerateKey(rand.Reader)
 	encoded := pemEncode(publicKey, "NACL PUBLIC KEY")
 	decoded, err := pemDecode(encoded)
-	a.Nil(t, err)
-	a.Equal(t, publicKey, decoded, "Key must be same after encode/decode cycle")
+	assert.Nil(t, err)
+	assert.Equal(t, publicKey, decoded, "Key must be same after encode/decode cycle")
 }
 
 func TestDecodeWithoutHeader(t *testing.T) {
@@ -25,22 +33,37 @@ func TestDecodeWithoutHeader(t *testing.T) {
 	strippedKey := `/1fbWGMTaR+lLQJnEsmxdfwWybKOpPQpyWB3FpNmOF4=`
 
 	decoded, err := pemDecode(completeKey)
-	a.Nil(t, err)
+	assert.Nil(t, err)
 
 	decoded2, err := pemDecode(strippedKey)
-	a.Nil(t, err)
-	a.Equal(t, decoded, decoded2, "Keys must be decode to same value")
+	assert.Nil(t, err)
+	assert.Equal(t, decoded, decoded2, "Keys must be decode to same value")
 }
 
 func TestDecryptEnvelope(t *testing.T) {
 	envelope := `ENC[NACL,WLWwVUGVX7tTJd84mRioKQflzoTUWMj+PMtrO+c2oxEbnJba3ILzlyqhBKbd2Q==]`
 	privkey, err := pemDecode(privateKey)
-	a.Nil(t, err)
+	assert.Nil(t, err)
 
 	pubkey, err := pemDecode(publicKey)
-	a.Nil(t, err)
+	assert.Nil(t, err)
 
 	plaintext, err := decryptEnvelope(pubkey, privkey, envelope)
-	a.Nil(t, err)
-	a.Equal(t, "secret", string(plaintext), "Should decrypt plaintext")
+	assert.Nil(t, err)
+	assert.Equal(t, "secret", string(plaintext), "Should decrypt plaintext")
+}
+
+func TestEncryptEnvelope(t *testing.T) {
+	privkey, err := pemDecode(privateKey)
+	assert.Nil(t, err)
+
+	pubkey, err := pemDecode(publicKey)
+	assert.Nil(t, err)
+
+	envelope, err := encryptEnvelope(pubkey, privkey, []byte("secret"))
+	assert.Nil(t, err)
+
+	plaintext, err := decryptEnvelope(pubkey, privkey, envelope)
+	assert.Nil(t, err)
+	assert.Equal(t, "secret", string(plaintext), "Should decrypt plaintext")
 }

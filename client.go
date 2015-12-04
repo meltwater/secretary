@@ -21,7 +21,7 @@ func (self *KeyCrypto) Decrypt(envelope string) ([]byte, error) {
 	return decryptEnvelope(self.PublicKey, self.PrivateKey, envelope)
 }
 
-func NewKeyCrypto(publicKey *[32]byte, privateKey *[32]byte) *KeyCrypto {
+func newKeyCrypto(publicKey *[32]byte, privateKey *[32]byte) *KeyCrypto {
 	return &KeyCrypto{PublicKey: publicKey, PrivateKey: privateKey}
 }
 
@@ -31,7 +31,7 @@ type RemoteCrypto struct {
 	ConfigKey, MasterKey, DeployKey, ServiceKey *[32]byte
 }
 
-func NewRemoteCrypto(
+func newRemoteCrypto(
 	daemonUrl string, appId string, appVersion string, taskId string,
 	configKey *[32]byte, masterKey *[32]byte, deployKey *[32]byte, serviceKey *[32]byte) *RemoteCrypto {
 	return &RemoteCrypto{

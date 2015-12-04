@@ -32,7 +32,7 @@ func check(err error, a ...interface{}) {
 }
 
 // Panics with a message if the given condition isn't true
-func assert(condition bool, msg string, a ...interface{}) {
+func assertThat(condition bool, msg string, a ...interface{}) {
 	if !condition {
 		panic(&CommandError{fmt.Sprintf(msg, a...), nil})
 	}
@@ -40,7 +40,15 @@ func assert(condition bool, msg string, a ...interface{}) {
 
 // Min value
 func min(a int, b int) int {
-	if a <= b {
+	if a < b {
+		return a
+	}
+
+	return b
+}
+
+func max(a int, b int) int {
+	if a > b {
 		return a
 	}
 
@@ -49,8 +57,8 @@ func min(a int, b int) int {
 
 func ellipsis(input string, maxLength int) string {
 	trimmed := strings.TrimSpace(input)
-	if len(trimmed) > (maxLength - 3) {
-		return fmt.Sprintf("%s...", strings.TrimSpace(trimmed[0:(maxLength-3)]))
+	if len(trimmed) > maxLength {
+		return fmt.Sprintf("%s...", strings.TrimSpace(trimmed[0:max(maxLength-3, 0)]))
 	}
 
 	return trimmed
@@ -83,7 +91,7 @@ func httpReadBody(response *http.Response) ([]byte, error) {
 func httpPostForm(url string, values url.Values) ([]byte, error) {
 	response, err := http.PostForm(url, values)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to decrypt using daemon (%s)", err))
+		return nil, err
 	}
 
 	return httpReadBody(response)
