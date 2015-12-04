@@ -1,9 +1,10 @@
 language: go
+sudo: false
 os:
   - linux
   - osx
-
-sudo: false
+go:
+  - 1.5.1
 
 # Deploy executables to Github release tags
 deploy:
