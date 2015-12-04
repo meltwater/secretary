@@ -13,7 +13,6 @@ fmt:
 build:
 	 CGO_ENABLED=0 go build -o "secretary-`uname -s`-`uname -m`"
 	 ln -sf "secretary-`uname -s`-`uname -m`" secretary
-	 ldd secretary; true
 
 test:
 	go test -v

@@ -4,7 +4,7 @@ os:
   - linux
   - osx
 go:
-  - tip
+  - 1.5.1
 
 # Deploy executables to Github release tags
 deploy:
