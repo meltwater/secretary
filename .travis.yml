@@ -2,8 +2,6 @@ language: go
 os:
   - linux
   - osx
-env:
-  CGO_ENABLED=0
 
 sudo: false
 
