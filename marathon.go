@@ -62,6 +62,38 @@ func verifyRunningTask(appId string, appVersion string, taskId string, body []by
 	return true, nil
 }
 
+func parseApplicationVersion(appId string, appVersion string, body []byte) (*MarathonApp, error) {
+	// Parse the JSON response
+	var taskVersion MarathonVersionResponse
+	err := json.Unmarshal(body, &taskVersion)
+	if err != nil || taskVersion.Id != appId || taskVersion.Version != appVersion {
+		return nil, errors.New(fmt.Sprintf("Failed to parse Marathon JSON response (%s): %s", err, string(body)))
+	}
+
+	// Extract the deploy public key
+	encodedDeployKey, ok := taskVersion.Env["DEPLOY_PUBLIC_KEY"]
+	if !ok {
+		return nil, errors.New("App is missing $DEPLOY_PUBLIC_KEY in the Marathon config \"env\" section")
+	}
+
+	deployKey, err := pemDecode(encodedDeployKey)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to decode $DEPLOY_PUBLIC_KEY (%s)", err))
+	}
+
+	// Extract the optional service public key
+	encodedServiceKey, ok := taskVersion.Env["SERVICE_PUBLIC_KEY"]
+	var serviceKey *[32]byte
+	if ok {
+		serviceKey, err = pemDecode(encodedServiceKey)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("Failed to decode $SERVICE_PUBLIC_KEY (%s)", err))
+		}
+	}
+
+	return &MarathonApp{Id: taskVersion.Id, Version: taskVersion.Version, DeployKey: deployKey, ServiceKey: serviceKey, Env: taskVersion.Env}, nil
+}
+
 func getMarathonApp(marathonUrl string, appId string, appVersion string, taskId string) (*MarathonApp, error) {
 	// Validate that given taskId is actually still running (old deploy keys shouldn't be allows to access any secrets)
 	{
@@ -88,33 +120,5 @@ func getMarathonApp(marathonUrl string, appId string, appVersion string, taskId 
 		return nil, err
 	}
 
-	// Parse the JSON response
-	var taskVersion MarathonVersionResponse
-	err = json.Unmarshal(body, &taskVersion)
-	if err != nil || taskVersion.Id != appId || taskVersion.Version != appVersion {
-		return nil, errors.New(fmt.Sprintf("Failed to parse %s Marathon JSON response (%s): %s", url, err, string(body)))
-	}
-
-	// Extract the deploy public key
-	encodedDeployKey, ok := taskVersion.Env["DEPLOY_PUBLIC_KEY"]
-	if !ok {
-		return nil, errors.New("App is missing $DEPLOY_PUBLIC_KEY in the Marathon config \"env\" section")
-	}
-
-	deployKey, err := pemDecode(encodedDeployKey)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to decode $DEPLOY_PUBLIC_KEY (%s)", err))
-	}
-
-	// Extract the optional service public key
-	encodedServiceKey, ok := taskVersion.Env["SERVICE_PUBLIC_KEY"]
-	var serviceKey *[32]byte
-	if ok {
-		serviceKey, err = pemDecode(encodedServiceKey)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Failed to decode $SERVICE_PUBLIC_KEY (%s)", err))
-		}
-	}
-
-	return &MarathonApp{Id: taskVersion.Id, Version: taskVersion.Version, DeployKey: deployKey, ServiceKey: serviceKey, Env: taskVersion.Env}, nil
+	return parseApplicationVersion(appId, appVersion, body)
 }

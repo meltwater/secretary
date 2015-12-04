@@ -1,0 +1,78 @@
+{
+  "id": "/demo/webapp",
+  "cmd": null,
+  "args": null,
+  "user": null,
+  "env": {
+    "MASTER_PUBLIC_KEY": "4qWrxezV1LMehxHyWg1JOZ6KIoZ8LSdVGZQ4ehuAYy4=",
+    "DEPLOY_PRIVATE_KEY": "8Cw5ysGd14dRObahAX/MtPrkmc7tOVj6OX5lM8HxerI=",
+    "SECRETARY_URL": "http://localhost:5070",
+    "DEPLOY_PUBLIC_KEY": "omO6DSEw/mZDG9NuhyEC4uYbgwwqEivOuX0EqX9+Ql0=",
+    "DATABASE_PASSWORD": "ENC[NACL,9eXE3SFcX28qlijqHLUm47HbrMtIL6xJtcTLrc5Ucr3yvgRBNesFmSVFYqWqsKRlaPZUE5s124dpNOwUsMFuJpUFuPle9mi037UMReKrdXs/vSbOcRoJUWkGUxyXRywj4LS4dBlea2y9eVIYYHYHQDC4DFGaVd/2wftoGseph1pC1+026CCuzXgVphS0d5u+3gsgi5WMnLOTDVp8TQpsptW64sn/RrulWsp4Ci2O9c0Nqt+PFNlB70GZQlz7aWSQjCkBTbdCDwlwPA==]",
+    "SERVICE_PUBLIC_KEY": "kVOhhw2wAJuAofxO7h4EM0xboxGAwnsq9J6fluFY5CQ=",
+    "DATABASE": "mysql://$HOST:3306",
+    "DATABASE_USERNAME": "myuser",
+    "CONFIG_PUBLIC_KEY": "DbvlfSwpubWLYtSj/92thWsSSwqE9kjZP9Y1geKohE0="
+  },
+  "instances": 3,
+  "cpus": 0.1,
+  "mem": 200.0,
+  "disk": 0.0,
+  "executor": "",
+  "constraints": [
+    [
+      "hostname",
+      "GROUP_BY"
+    ]
+  ],
+  "uris": [],
+  "storeUrls": [],
+  "ports": [
+    1234
+  ],
+  "requirePorts": false,
+  "backoffSeconds": 1,
+  "backoffFactor": 1.15,
+  "maxLaunchDelaySeconds": 3600,
+  "container": {
+    "type": "DOCKER",
+    "volumes": [
+      {
+        "containerPath": "/usr/bin/secretary",
+        "hostPath": "/home/mikl/src/secretary/secretary-Linux-x86_64",
+        "mode": "RO"
+      }
+    ],
+    "docker": {
+      "image": "meltwater/mesos-demo-webapp:latest",
+      "network": "HOST",
+      "privileged": false,
+      "parameters": [],
+      "forcePullImage": false
+    }
+  },
+  "healthChecks": [
+    {
+      "path": "/_status",
+      "protocol": "HTTP",
+      "portIndex": 0,
+      "gracePeriodSeconds": 15,
+      "intervalSeconds": 10,
+      "timeoutSeconds": 5,
+      "maxConsecutiveFailures": 3,
+      "ignoreHttp1xx": false
+    }
+  ],
+  "dependencies": [],
+  "upgradeStrategy": {
+    "minimumHealthCapacity": 1.0,
+    "maximumOverCapacity": 1.0
+  },
+  "labels": {},
+  "acceptedResourceRoles": null,
+  "version": "2015-12-04T12:25:08.426Z",
+  "versionInfo": {
+    "lastScalingAt": "2015-12-04T12:25:08.426Z",
+    "lastConfigChangeAt": "2015-12-04T12:25:08.426Z"
+  }
+}
