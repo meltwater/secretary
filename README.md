@@ -347,8 +347,5 @@ docker::run_instance:
 
 ## TODO
 
-* Lighter compares existing app config by re-encrypting with
-  same nonce and checking for change (use a new nonce when
-  actually re-deploying).
 * Setuid secretary-cgi that decrypts the master key to avoid
   giving `secretary daemon` direct access to master private key.
