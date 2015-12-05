@@ -99,7 +99,7 @@ func getMarathonApp(marathonUrl string, appId string, appVersion string, taskId 
 	{
 		// Fetch the list of running tasks for this app
 		url := fmt.Sprintf("%s/v2/apps/%s?embed=apps.tasks", marathonUrl,
-			strings.Replace(strings.Replace(url.QueryEscape(appId), "..", "", -1), "%2F", "/", -1))
+			strings.Replace(strings.Replace(url.QueryEscape(strings.TrimLeft(appId, "/")), "..", "", -1), "%2F", "/", -1))
 		body, err := httpGet(url)
 		if err != nil {
 			return nil, err
@@ -113,7 +113,7 @@ func getMarathonApp(marathonUrl string, appId string, appVersion string, taskId 
 
 	// Fetch the exact app config version for this task
 	url := fmt.Sprintf("%s/v2/apps/%s/versions/%s", marathonUrl,
-		strings.Replace(strings.Replace(url.QueryEscape(appId), "..", "", -1), "%2F", "/", -1),
+		strings.Replace(strings.Replace(url.QueryEscape(strings.TrimLeft(appId, "/")), "..", "", -1), "%2F", "/", -1),
 		url.QueryEscape(appVersion))
 	body, err := httpGet(url)
 	if err != nil {

@@ -118,8 +118,8 @@ func encryptResponse(app *MarathonApp, masterKey *[32]byte, plaintext []byte) ([
 	return []byte(encrypted), nil
 }
 
-func daemonCommand(listenAddress string, marathonUrl string, configPublicKey *[32]byte, configPrivateKey *[32]byte, masterKey *[32]byte) {
-	http.HandleFunc("/v1/decrypt", func(w http.ResponseWriter, r *http.Request) {
+func decryptEndpointHandler(marathonUrl string, configPublicKey *[32]byte, configPrivateKey *[32]byte, masterKey *[32]byte) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			errorResponse(w, r, "Expected POST method", http.StatusMethodNotAllowed)
 			return
@@ -177,8 +177,11 @@ func daemonCommand(listenAddress string, marathonUrl string, configPublicKey *[3
 		}
 
 		w.Write([]byte(encrypted))
-	})
+	}
+}
 
+func daemonCommand(listenAddress string, marathonUrl string, configPublicKey *[32]byte, configPrivateKey *[32]byte, masterKey *[32]byte) {
+	http.HandleFunc("/v1/decrypt", decryptEndpointHandler(marathonUrl, configPublicKey, configPrivateKey, masterKey))
 	log.Printf("Daemon listening on %s", listenAddress)
 	log.Fatal(http.ListenAndServe(listenAddress, nil))
 }
