@@ -15,3 +15,7 @@ deploy:
   skip_cleanup: true
   on:
     tags: true
+
+# Code coverage for https://codecov.io/github/mikljohansson/secretary
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

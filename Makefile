@@ -5,6 +5,7 @@ get:
 	go get github.com/spf13/cobra
 	go get github.com/stretchr/testify/assert
 	go get golang.org/x/crypto/nacl/box
+	go get golang.org/x/tools/cmd/cover
 
 # http://golang.org/cmd/go/#hdr-Run_gofmt_on_package_sources
 fmt:
@@ -15,7 +16,7 @@ build:
 	 ln -sf "secretary-`uname -s`-`uname -m`" secretary
 
 test:
-	go test -v
+	go test -v -coverprofile=coverage.txt -covermode=atomic
 
 clean:
 	rm -f ./secretary
