@@ -82,7 +82,7 @@ func httpReadBody(response *http.Response) ([]byte, error) {
 	}
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, errors.New(fmt.Sprintf("HTTP %d Error: %s", response.StatusCode, ellipsis(string(body), 64)))
+		return nil, errors.New(fmt.Sprintf("HTTP %d Error: %s", response.StatusCode, ellipsis(string(body), 256)))
 	}
 
 	return body, nil

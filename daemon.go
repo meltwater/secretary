@@ -31,14 +31,14 @@ func decryptRequest(app *MarathonApp, masterKey *[32]byte, serviceEnvelope strin
 	// Authenticate with deploy key and decrypt
 	body, err := decryptEnvelope(app.DeployKey, masterKey, serviceEnvelope)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("Failed to authenticate/decrypt request using deploy and master key (incorrect master key or hacking attempt? (%s))", err))
 	}
 
 	// Authenticate with optional service key and decrypt
 	if app.ServiceKey != nil {
 		body, err = decryptEnvelope(app.ServiceKey, masterKey, string(body))
 		if err != nil {
-			return nil, err
+			return nil, errors.New(fmt.Sprintf("Failed to authenticate/decrypt request using service and master key (incorrect master key or hacking attempt? (%s))", err))
 		}
 	}
 
@@ -50,8 +50,7 @@ func decryptRequest(app *MarathonApp, masterKey *[32]byte, serviceEnvelope strin
 	}
 
 	// Validate that appId, appVersion, taskId corresponds to HTTP request params
-	// TODO: check TaskId
-	if request.AppId != app.Id || request.AppVersion != app.Version /*|| request.TaskId != app.TaskId */ {
+	if request.AppId != app.Id || request.AppVersion != app.Version || request.TaskId != app.TaskId {
 		return nil, errors.New("Given appid,appversion,taskid doesn't correspond to HTTP request params (bug or hacking attempt?)")
 	}
 
@@ -166,7 +165,7 @@ func decryptEndpointHandler(marathonUrl string, configPublicKey *[32]byte, confi
 		// Authenticate with config key and decrypt secret
 		plaintext, err := decryptEnvelope(configPublicKey, masterKey, request.RequestedSecret)
 		if err != nil {
-			errorResponse(w, r, err, http.StatusBadRequest)
+			errorResponse(w, r, errors.New(fmt.Sprintf("Failed to decrypt plaintext secret, incorrect config or master key? (%s)", err)), http.StatusBadRequest)
 			return
 		}
 

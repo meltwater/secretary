@@ -16,6 +16,6 @@ deploy:
   on:
     tags: true
 
-# Code coverage for https://codecov.io/github/mikljohansson/secretary
+# Code coverage for master branch using https://codecov.io/github/mikljohansson/secretary
 after_success:
-  - bash <(curl -s https://codecov.io/bash)
+  - if [ "$TRAVIS_TAG" == "" ] && [ "$TRAVIS_OS_NAME" == "linux" ]; then bash <(curl -s https://codecov.io/bash); fi

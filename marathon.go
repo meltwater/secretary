@@ -32,10 +32,10 @@ type MarathonVersionResponse struct {
 
 // Result struct from getMarathonApp
 type MarathonApp struct {
-	Id, Version string
-	DeployKey   *[32]byte
-	ServiceKey  *[32]byte
-	Env         map[string]string
+	Id, Version, TaskId string
+	DeployKey           *[32]byte
+	ServiceKey          *[32]byte
+	Env                 map[string]string
 }
 
 func verifyRunningTask(appId string, appVersion string, taskId string, body []byte) (bool, error) {
@@ -62,7 +62,7 @@ func verifyRunningTask(appId string, appVersion string, taskId string, body []by
 	return true, nil
 }
 
-func parseApplicationVersion(appId string, appVersion string, body []byte) (*MarathonApp, error) {
+func parseApplicationVersion(appId string, appVersion string, taskId string, body []byte) (*MarathonApp, error) {
 	// Parse the JSON response
 	var taskVersion MarathonVersionResponse
 	err := json.Unmarshal(body, &taskVersion)
@@ -91,7 +91,7 @@ func parseApplicationVersion(appId string, appVersion string, body []byte) (*Mar
 		}
 	}
 
-	return &MarathonApp{Id: taskVersion.Id, Version: taskVersion.Version, DeployKey: deployKey, ServiceKey: serviceKey, Env: taskVersion.Env}, nil
+	return &MarathonApp{Id: taskVersion.Id, Version: taskVersion.Version, TaskId: taskId, DeployKey: deployKey, ServiceKey: serviceKey, Env: taskVersion.Env}, nil
 }
 
 func getMarathonApp(marathonUrl string, appId string, appVersion string, taskId string) (*MarathonApp, error) {
@@ -120,5 +120,5 @@ func getMarathonApp(marathonUrl string, appId string, appVersion string, taskId 
 		return nil, err
 	}
 
-	return parseApplicationVersion(appId, appVersion, body)
+	return parseApplicationVersion(appId, appVersion, taskId, body)
 }
