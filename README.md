@@ -1,5 +1,6 @@
 # Secretary
-<a href='https://travis-ci.org/mikljohansson/secretary'><img src='https://secure.travis-ci.org/mikljohansson/secretary.png?branch=master'></a>
+[![Travis CI](https://img.shields.io/travis/mikljohansson/secretary/master.svg)](https://travis-ci.org/mikljohansson/secretary)
+[![Coverage Status](http://codecov.io/github/mikljohansson/secretary/coverage.svg?branch=master)](http://codecov.io/github/mikljohansson/secretary?branch=master)
 
 [Secretary](https://en.wikipedia.org/wiki/Secretary#Etymology) solves the problem of
 secrets distribution and authorization in highly dynamic container environments.
