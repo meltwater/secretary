@@ -79,9 +79,9 @@ func TestParseApplicationWithoutServiceKey(t *testing.T) {
 	response, err := ioutil.ReadFile("./resources/test/marathon-versions-nosvckey.json")
 	assert.Nil(t, err)
 
-	app, err := parseApplicationVersion("/demo/webapp", "2015-12-04T12:25:08.426Z", response)
+	app, err := parseApplicationVersion("/demo/webapp2", "2015-12-04T12:25:08.426Z", response)
 	assert.Nil(t, err)
-	assert.Equal(t, "/demo/webapp", app.Id)
+	assert.Equal(t, "/demo/webapp2", app.Id)
 	assert.Equal(t, "2015-12-04T12:25:08.426Z", app.Version)
 
 	assert.Equal(t, "omO6DSEw/mZDG9NuhyEC4uYbgwwqEivOuX0EqX9+Ql0=", encode(app.DeployKey[:]))

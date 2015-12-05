@@ -38,12 +38,14 @@ func main() {
 			Use:   "encrypt",
 			Short: "Encrypt data",
 			Run: func(cmd *cobra.Command, args []string) {
-				encryptCommand(publicKeyFile, privateKeyFile)
+				publicKey := requireKey("config public", publicKeyFile, "PUBLIC_KEY", "./keys/master-public-key.pem")
+				privateKey := requireKey("deploy private", privateKeyFile, "PRIVATE_KEY", "./keys/config-private-key.pem")
+				encryptCommand(publicKey, privateKey)
 			},
 		}
 
-		cmdEncrypt.Flags().StringVarP(&publicKeyFile, "public-key", "", "./keys/master-public-key.pem", "Master public key file")
-		cmdEncrypt.Flags().StringVarP(&privateKeyFile, "private-key", "", "./keys/config-private-key.pem", "Config private key file")
+		cmdEncrypt.Flags().StringVarP(&publicKeyFile, "public-key", "", "", "Public key")
+		cmdEncrypt.Flags().StringVarP(&privateKeyFile, "private-key", "", "", "Private key")
 		rootCmd.AddCommand(cmdEncrypt)
 	}
 

@@ -1,0 +1,152 @@
+{
+  "app": {
+    "id": "/demo/webapp2",
+    "cmd": null,
+    "args": null,
+    "user": null,
+    "env": {
+      "MASTER_PUBLIC_KEY": "4qWrxezV1LMehxHyWg1JOZ6KIoZ8LSdVGZQ4ehuAYy4=",
+      "DEPLOY_PRIVATE_KEY": "8Cw5ysGd14dRObahAX/MtPrkmc7tOVj6OX5lM8HxerI=",
+      "SECRETARY_URL": "http://localhost:5070",
+      "DEPLOY_PUBLIC_KEY": "omO6DSEw/mZDG9NuhyEC4uYbgwwqEivOuX0EqX9+Ql0=",
+      "DATABASE_PASSWORD": "ENC[NACL,5Jje+wI4faU6ilAjwkJmehY1THiRi6Lj+IcrgWuom7dn0HDM10aQdt2C4PQJLyjhZr8md0m5KVfAGi23aRFB5vKw30QCNBx4pIBHhgm0vP/W1/2DOf2KQr3Z+zPo0smoC0m54ugauBTuFpWf/QTKUuW1]",
+      "DATABASE": "mysql://$HOST:3306",
+      "DATABASE_USERNAME": "myuser",
+      "CONFIG_PUBLIC_KEY": "DbvlfSwpubWLYtSj/92thWsSSwqE9kjZP9Y1geKohE0="
+    },
+    "instances": 3,
+    "cpus": 0.1,
+    "mem": 200.0,
+    "disk": 0.0,
+    "executor": "",
+    "constraints": [
+      [
+        "hostname",
+        "GROUP_BY"
+      ]
+    ],
+    "uris": [],
+    "storeUrls": [],
+    "ports": [
+      1234
+    ],
+    "requirePorts": false,
+    "backoffSeconds": 1,
+    "backoffFactor": 1.15,
+    "maxLaunchDelaySeconds": 3600,
+    "container": {
+      "type": "DOCKER",
+      "volumes": [
+        {
+          "containerPath": "/usr/bin/secretary",
+          "hostPath": "/home/mikl/src/secretary/secretary-Linux-x86_64",
+          "mode": "RO"
+        }
+      ],
+      "docker": {
+        "image": "meltwater/mesos-demo-webapp:latest",
+        "network": "HOST",
+        "privileged": false,
+        "parameters": [],
+        "forcePullImage": false
+      }
+    },
+    "healthChecks": [
+      {
+        "path": "/_status",
+        "protocol": "HTTP",
+        "portIndex": 0,
+        "gracePeriodSeconds": 15,
+        "intervalSeconds": 10,
+        "timeoutSeconds": 5,
+        "maxConsecutiveFailures": 3,
+        "ignoreHttp1xx": false
+      }
+    ],
+    "dependencies": [],
+    "upgradeStrategy": {
+      "minimumHealthCapacity": 1.0,
+      "maximumOverCapacity": 1.0
+    },
+    "labels": {},
+    "acceptedResourceRoles": null,
+    "version": "2015-12-04T12:25:08.426Z",
+    "versionInfo": {
+      "lastScalingAt": "2015-12-04T12:25:08.426Z",
+      "lastConfigChangeAt": "2015-12-04T12:25:08.426Z"
+    },
+    "tasksStaged": 0,
+    "tasksRunning": 3,
+    "tasksHealthy": 3,
+    "tasksUnhealthy": 0,
+    "deployments": [],
+    "tasks": [
+      {
+        "id": "demo_webapp.0f826da3-9a82-11e5-94c7-6a515f434e2d",
+        "host": "192.168.0.194",
+        "ports": [
+          31190
+        ],
+        "startedAt": "2015-12-04T12:25:13.453Z",
+        "stagedAt": "2015-12-04T12:25:10.131Z",
+        "version": "2015-12-04T12:25:08.426Z",
+        "slaveId": "20151204-122450-16842879-5050-1-S0",
+        "appId": "/demo/webapp",
+        "healthCheckResults": [
+          {
+            "alive": true,
+            "consecutiveFailures": 0,
+            "firstSuccess": "2015-12-04T12:25:18.745Z",
+            "lastFailure": null,
+            "lastSuccess": "2015-12-04T12:45:30.450Z",
+            "taskId": "demo_webapp.0f826da3-9a82-11e5-94c7-6a515f434e2d"
+          }
+        ]
+      },
+      {
+        "id": "demo_webapp.0f810e10-9a82-11e5-94c7-6a515f434e2d",
+        "host": "192.168.0.194",
+        "ports": [
+          31506
+        ],
+        "startedAt": "2015-12-04T12:25:13.044Z",
+        "stagedAt": "2015-12-04T12:25:10.122Z",
+        "version": "2015-12-04T12:25:08.426Z",
+        "slaveId": "20151204-122450-16842879-5050-1-S0",
+        "appId": "/demo/webapp",
+        "healthCheckResults": [
+          {
+            "alive": true,
+            "consecutiveFailures": 0,
+            "firstSuccess": "2015-12-04T12:25:18.746Z",
+            "lastFailure": null,
+            "lastSuccess": "2015-12-04T12:45:30.453Z",
+            "taskId": "demo_webapp.0f810e10-9a82-11e5-94c7-6a515f434e2d"
+          }
+        ]
+      },
+      {
+        "id": "demo_webapp.0f844265-9a82-11e5-94c7-6a515f434e2d",
+        "host": "192.168.0.194",
+        "ports": [
+          31656
+        ],
+        "startedAt": "2015-12-04T12:25:12.121Z",
+        "stagedAt": "2015-12-04T12:25:10.142Z",
+        "version": "2015-12-04T12:25:08.426Z",
+        "slaveId": "20151204-122450-16842879-5050-1-S0",
+        "appId": "/demo/webapp",
+        "healthCheckResults": [
+          {
+            "alive": true,
+            "consecutiveFailures": 0,
+            "firstSuccess": "2015-12-04T12:25:18.744Z",
+            "lastFailure": null,
+            "lastSuccess": "2015-12-04T12:45:30.448Z",
+            "taskId": "demo_webapp.0f844265-9a82-11e5-94c7-6a515f434e2d"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -8,14 +8,11 @@ import (
 )
 
 // Encrypts data from stdin and writes to stdout
-func encryptCommand(receiverPublicKeyFile string, senderPrivateKeyFile string) {
-	receiverPublicKey := pemRead(receiverPublicKeyFile)
-	senderPrivateKey := pemRead(senderPrivateKeyFile)
-
+func encryptCommand(publicKey *[32]byte, privateKey *[32]byte) {
 	plaintext, err := ioutil.ReadAll(os.Stdin)
 	check(err, "Failed to read plaintext data from standard input")
 
-	envelope, err := encryptEnvelope(receiverPublicKey, senderPrivateKey, plaintext)
+	envelope, err := encryptEnvelope(publicKey, privateKey, plaintext)
 	check(err)
 
 	os.Stdout.WriteString(envelope)
