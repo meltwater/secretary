@@ -196,7 +196,7 @@ func TestRemoteCrypto(t *testing.T) {
 		plaintext, err := crypto.Decrypt(deployServiceKeySecret)
 		assert.NotNil(t, err)
 		assert.Nil(t, plaintext)
-		assert.Equal(t, "Failed to decrypt using daemon (HTTP 500 Error: Given appId,appVersion,taskId doesn't correspond to HTTP request params (bug or hacking attempt?))", err.Error())
+		assert.Equal(t, "Failed to decrypt using daemon (HTTP 500 Error: Given taskId is not running (bug or hacking attempt?))", err.Error())
 	}
 
 	// Test with a bad config public key

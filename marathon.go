@@ -56,7 +56,7 @@ func verifyRunningTask(appId string, appVersion string, taskId string, body []by
 	}
 
 	if !isActiveTaskid {
-		return false, errors.New("Given appId,appVersion,taskId doesn't correspond to HTTP request params (bug or hacking attempt?)")
+		return false, errors.New("Given taskId is not running (bug or hacking attempt?)")
 	}
 
 	return true, nil
