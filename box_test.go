@@ -33,10 +33,10 @@ func TestAsNonce(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, buf[0:24], nonce[:])
 
-	_, err = asKey([]byte("abc"))
+	_, err = asNonce([]byte("abc"))
 	assert.NotNil(t, err)
 
-	_, err = asKey(nil)
+	_, err = asNonce(nil)
 	assert.NotNil(t, err)
 }
 
