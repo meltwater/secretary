@@ -9,6 +9,16 @@ import (
 	"testing"
 )
 
+func TestKeyCrypto(t *testing.T) {
+	crypto := newKeyCrypto(
+		pemRead("./resources/test/keys/config-public-key.pem"),
+		pemRead("./resources/test/keys/master-private-key.pem"))
+
+	plaintext, err := crypto.Decrypt("ENC[NACL,fB7RSmpONiUGzaHtd8URiTSKqfBhor6BsJLSQErHH9NSgLTnxNLF60YS8ZT2IQ==]")
+	assert.Nil(t, err)
+	assert.Equal(t, "secret", string(plaintext))
+}
+
 func TestRemoteCrypto(t *testing.T) {
 	appsResponse, err := ioutil.ReadFile("./resources/test/marathon-apps-response.json")
 	assert.Nil(t, err)

@@ -111,7 +111,7 @@ func (self *RemoteCrypto) Decrypt(envelope string) ([]byte, error) {
 	var parsedResponse DaemonResponse
 	err = json.Unmarshal(response, &parsedResponse)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to parse JSON request (%s)", err))
+		return nil, errors.New(fmt.Sprintf("Failed to parse JSON respons (%s)", err))
 	}
 
 	plaintext, err := decode(parsedResponse.PlaintextSecret)
