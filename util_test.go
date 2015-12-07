@@ -63,3 +63,9 @@ func TestDefaults(t *testing.T) {
 	assert.Equal(t, "", defaults(""))
 	assert.Equal(t, "", defaults())
 }
+
+func TestStripWhitespace(t *testing.T) {
+	assert.Equal(t, "abc", stripWhitespace(" a b c "))
+	assert.Equal(t, "abc", stripWhitespace(" a b\n c "))
+	assert.Equal(t, "abc", stripWhitespace(" a \r\nb\n c \n"))
+}

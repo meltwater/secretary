@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"unicode"
 )
 
 // Checked exception thrown on runtime errors
@@ -72,6 +73,17 @@ func defaults(a ...string) string {
 	}
 
 	return ""
+}
+
+// Strip whitespace from string
+func stripWhitespace(a string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+
+		return r
+	}, a)
 }
 
 func httpReadBody(response *http.Response) ([]byte, error) {

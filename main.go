@@ -34,18 +34,20 @@ func main() {
 	// Encryption command
 	{
 		var publicKeyFile, privateKeyFile string
+		var wrapLines bool
 		cmdEncrypt := &cobra.Command{
 			Use:   "encrypt",
 			Short: "Encrypt data",
 			Run: func(cmd *cobra.Command, args []string) {
 				publicKey := requireKey("config public", publicKeyFile, "PUBLIC_KEY", "./keys/master-public-key.pem")
 				privateKey := requireKey("deploy private", privateKeyFile, "PRIVATE_KEY", "./keys/config-private-key.pem")
-				encryptCommand(publicKey, privateKey)
+				encryptCommand(os.Stdin, os.Stdout, publicKey, privateKey, wrapLines)
 			},
 		}
 
 		cmdEncrypt.Flags().StringVarP(&publicKeyFile, "public-key", "", "", "Public key")
 		cmdEncrypt.Flags().StringVarP(&privateKeyFile, "private-key", "", "", "Private key")
+		cmdEncrypt.Flags().BoolVarP(&wrapLines, "wrap", "w", false, "Wrap long lines")
 		rootCmd.AddCommand(cmdEncrypt)
 	}
 
@@ -73,9 +75,9 @@ func main() {
 				}
 
 				if decryptEnv {
-					decryptEnvironment(crypto)
+					decryptEnvironment(os.Environ(), os.Stdout, crypto)
 				} else {
-					decryptStream(crypto)
+					decryptStream(os.Stdin, os.Stdout, crypto)
 				}
 			},
 		}
