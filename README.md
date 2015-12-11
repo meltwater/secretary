@@ -1,6 +1,6 @@
 # Secretary
-[![Travis CI](https://img.shields.io/travis/mikljohansson/secretary/master.svg)](https://travis-ci.org/mikljohansson/secretary)
-[![Coverage Status](http://codecov.io/github/mikljohansson/secretary/coverage.svg?branch=master)](http://codecov.io/github/mikljohansson/secretary?branch=master)
+[![Travis CI](https://img.shields.io/travis/meltwater/secretary/master.svg)](https://travis-ci.org/meltwater/secretary)
+[![Coverage Status](http://codecov.io/github/meltwater/secretary/coverage.svg?branch=master)](http://codecov.io/github/meltwater/secretary?branch=master)
 
 [Secretary](https://en.wikipedia.org/wiki/Secretary#Etymology) solves the problem of
 secrets distribution and authorization in highly dynamic container environments.
@@ -301,7 +301,7 @@ Requires=docker.service
 WantedBy=multi-user.target
 
 [Service]
-Environment=IMAGE=mikljohansson/secretary:latest NAME=secretary
+Environment=IMAGE=meltwater/secretary:latest NAME=secretary
 
 # Allow docker pull to take some time
 TimeoutStartSec=600
@@ -337,7 +337,7 @@ classes:
 
 docker::run_instance:
   'secretary':
-    image: 'mikljohansson/secretary:latest'
+    image: 'meltwater/secretary:latest'
     ports:
       - '5070:5070'
     volumes:
