@@ -13,9 +13,6 @@ type DaemonRequest struct {
 
 	// Secret encrypted with master key
 	RequestedSecret string
-
-	// Nonces that was used when encrypting the config secret
-	DeployNonce, ServiceNonce string
 }
 
 type DaemonResponse struct {
@@ -57,34 +54,10 @@ func decryptRequest(app *MarathonApp, masterKey *[32]byte, serviceEnvelope strin
 	return &request, nil
 }
 
-func verifyAuthorization(app *MarathonApp, request *DaemonRequest, configPrivateKey *[32]byte) (bool, error) {
-	// Recreate encrypted secret as expected in the repo
-	secret := request.RequestedSecret
-	if app.ServiceKey != nil {
-		nonce, err := decodeNonce(request.ServiceNonce)
-		if err != nil {
-			return false, err
-		}
-
-		secret, err = encryptEnvelopeNonce(app.ServiceKey, configPrivateKey, []byte(secret), nonce)
-		if err != nil {
-			return false, err
-		}
-	}
-
-	nonce, err := decodeNonce(request.DeployNonce)
-	if err != nil {
-		return false, err
-	}
-
-	encrypted, err := encryptEnvelopeNonce(app.DeployKey, configPrivateKey, []byte(secret), nonce)
-	if err != nil {
-		return false, err
-	}
-
+func verifyAuthorization(app *MarathonApp, request *DaemonRequest) (bool, error) {
 	// Verify that encrypted string is present in app config
 	for _, value := range app.Env {
-		if value == string(encrypted) {
+		if value == request.RequestedSecret {
 			return true, nil
 		}
 	}
@@ -117,7 +90,7 @@ func encryptResponse(app *MarathonApp, masterKey *[32]byte, plaintext []byte) ([
 	return []byte(encrypted), nil
 }
 
-func decryptEndpointHandler(marathonUrl string, configPublicKey *[32]byte, configPrivateKey *[32]byte, masterKey *[32]byte) func(http.ResponseWriter, *http.Request) {
+func decryptEndpointHandler(marathonUrl string, configPublicKey *[32]byte, masterKey *[32]byte) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			errorResponse(w, r, "Expected POST method", http.StatusMethodNotAllowed)
@@ -156,7 +129,7 @@ func decryptEndpointHandler(marathonUrl string, configPublicKey *[32]byte, confi
 		}
 
 		// Verify that the secret is actually part of the service's config
-		ok, err := verifyAuthorization(app, request, configPrivateKey)
+		ok, err := verifyAuthorization(app, request)
 		if !ok || err != nil {
 			errorResponse(w, r, err, http.StatusUnauthorized)
 			return
@@ -179,8 +152,8 @@ func decryptEndpointHandler(marathonUrl string, configPublicKey *[32]byte, confi
 	}
 }
 
-func daemonCommand(listenAddress string, marathonUrl string, configPublicKey *[32]byte, configPrivateKey *[32]byte, masterKey *[32]byte) {
-	http.HandleFunc("/v1/decrypt", decryptEndpointHandler(marathonUrl, configPublicKey, configPrivateKey, masterKey))
+func daemonCommand(listenAddress string, marathonUrl string, configPublicKey *[32]byte, masterKey *[32]byte) {
+	http.HandleFunc("/v1/decrypt", decryptEndpointHandler(marathonUrl, configPublicKey, masterKey))
 	log.Printf("Daemon listening on %s", listenAddress)
 	log.Fatal(http.ListenAndServe(listenAddress, nil))
 }

@@ -22,6 +22,6 @@ clean:
 	rm -f ./secretary
 
 docker:
-	docker build -t mikljohansson/secretary:latest .
+	docker build -t meltwater/secretary:latest .
 
 .PHONY: get fmt build test clean

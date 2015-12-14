@@ -58,7 +58,6 @@ func TestRemoteCrypto(t *testing.T) {
 	// Start secretary daemon
 	handler := decryptEndpointHandler(marathon.URL,
 		pemRead("./resources/test/keys/config-public-key.pem"),
-		pemRead("./resources/test/keys/config-private-key.pem"),
 		pemRead("./resources/test/keys/master-private-key.pem"))
 
 	daemon := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +69,7 @@ func TestRemoteCrypto(t *testing.T) {
 			http.Error(w, fmt.Sprintf("Bad URL %s", r.URL.Path), http.StatusNotFound)
 		}
 	}))
+	
 	defer daemon.Close()
 
 	deployPrivateKey, err := pemDecode("8Cw5ysGd14dRObahAX/MtPrkmc7tOVj6OX5lM8HxerI=")
@@ -77,19 +77,17 @@ func TestRemoteCrypto(t *testing.T) {
 
 	appId, appVersion, taskId := "/demo/webapp", "2015-12-04T12:25:08.426Z", "demo_webapp.0f810e10-9a82-11e5-94c7-6a515f434e2d"
 	badAppVersion, badTaskId := "2015-11-04T12:25:08.426Z", "demo_webapp.0f844265-9a82-11e5-94c7-6a515f434e2d"
-	deployServiceKeySecret := "ENC[NACL,9eXE3SFcX28qlijqHLUm47HbrMtIL6xJtcTLrc5Ucr3yvgRBNesFmSVFYqWqsKRlaPZUE5s124dpNOwUsMFuJpUFuPle9mi037UMReKrdXs/vSbOcRoJUWkGUxyXRywj4LS4dBlea2y9eVIYYHYHQDC4DFGaVd/2wftoGseph1pC1+026CCuzXgVphS0d5u+3gsgi5WMnLOTDVp8TQpsptW64sn/RrulWsp4Ci2O9c0Nqt+PFNlB70GZQlz7aWSQjCkBTbdCDwlwPA==]"
-	deployKeySecret := "ENC[NACL,5Jje+wI4faU6ilAjwkJmehY1THiRi6Lj+IcrgWuom7dn0HDM10aQdt2C4PQJLyjhZr8md0m5KVfAGi23aRFB5vKw30QCNBx4pIBHhgm0vP/W1/2DOf2KQr3Z+zPo0smoC0m54ugauBTuFpWf/QTKUuW1]"
+	encryptedSecret := "ENC[NACL,jpDAHM6WZe/1C93FLHd2M916U9AQwjT3VdvzQ7JHTHc57dLXsGE+oI8wDE2Fiw==]"
 
 	// Test decryption with both deploy and service keys
 	{
 		crypto := newRemoteCrypto(daemon.URL,
 			appId, appVersion, taskId,
-			pemRead("./resources/test/keys/config-public-key.pem"),
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
 			pemRead("./resources/test/keys/myservice-private-key.pem"))
 
-		plaintext, err := crypto.Decrypt(deployServiceKeySecret)
+		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.Nil(t, err)
 		assert.Equal(t, "secret", string(plaintext))
 	}
@@ -98,11 +96,10 @@ func TestRemoteCrypto(t *testing.T) {
 	{
 		crypto := newRemoteCrypto(daemon.URL,
 			"/demo/webapp2", appVersion, taskId,
-			pemRead("./resources/test/keys/config-public-key.pem"),
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey, nil)
 
-		plaintext, err := crypto.Decrypt(deployKeySecret)
+		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.Nil(t, err)
 		assert.Equal(t, "secret", string(plaintext))
 	}
@@ -111,7 +108,6 @@ func TestRemoteCrypto(t *testing.T) {
 	{
 		crypto := newRemoteCrypto(daemon.URL,
 			"/demo/webapp2", appVersion, taskId,
-			pemRead("./resources/test/keys/config-public-key.pem"),
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey, nil)
 
@@ -125,70 +121,52 @@ func TestRemoteCrypto(t *testing.T) {
 	{
 		crypto := newRemoteCrypto(daemon.URL,
 			appId, appVersion, taskId,
-			pemRead("./resources/test/keys/config-public-key.pem"),
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			pemRead("./resources/test/keys/bad-private-key.pem"),
 			pemRead("./resources/test/keys/myservice-private-key.pem"))
 
-		plaintext, err := crypto.Decrypt(deployServiceKeySecret)
+		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
 		assert.Nil(t, plaintext)
-		assert.Equal(t, "Failed to decrypt secret parameter using config key and deploy key (Failed to decrypt (incorrect keys?))", err.Error())
+		assert.Equal(t, "Failed to decrypt using daemon (HTTP 400 Error: Failed to authenticate/decrypt request using deploy and master key (incorrect master key or hacking attempt? (Failed to decrypt (incorrect keys?))))", err.Error())
 	}
 
 	// Test decryption with bad service key
 	{
 		crypto := newRemoteCrypto(daemon.URL,
 			appId, appVersion, taskId,
-			pemRead("./resources/test/keys/config-public-key.pem"),
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
 			pemRead("./resources/test/keys/bad-private-key.pem"))
 
-		plaintext, err := crypto.Decrypt(deployServiceKeySecret)
+		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
 		assert.Nil(t, plaintext)
-		assert.Equal(t, "Failed to decrypt secret parameter using config key and service key (Failed to decrypt (incorrect keys?))", err.Error())
+		assert.Equal(t, "Failed to decrypt using daemon (HTTP 400 Error: Failed to authenticate/decrypt request using service and master key (incorrect master key or hacking attempt? (Failed to decrypt (incorrect keys?))))", err.Error())
 	}
 
 	// Test with a bad master key
 	{
 		crypto := newRemoteCrypto(daemon.URL,
 			"/demo/webapp", appVersion, taskId,
-			pemRead("./resources/test/keys/config-public-key.pem"),
 			pemRead("./resources/test/keys/bad-public-key.pem"),
 			deployPrivateKey, nil)
 
-		plaintext, err := crypto.Decrypt(deployKeySecret)
+		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
 		assert.Nil(t, plaintext)
 		assert.Equal(t, "Failed to decrypt using daemon (HTTP 400 Error: Failed to authenticate/decrypt request using deploy and master key (incorrect master key or hacking attempt? (Failed to decrypt (incorrect keys?))))", err.Error())
-	}
-
-	// Test with a bad config key
-	{
-		crypto := newRemoteCrypto(daemon.URL,
-			"/demo/webapp", appVersion, taskId,
-			pemRead("./resources/test/keys/bad-public-key.pem"),
-			pemRead("./resources/test/keys/master-public-key.pem"),
-			deployPrivateKey, nil)
-
-		plaintext, err := crypto.Decrypt(deployKeySecret)
-		assert.NotNil(t, err)
-		assert.Nil(t, plaintext)
-		assert.Equal(t, "Failed to decrypt secret parameter using config key and deploy key (Failed to decrypt (incorrect keys?))", err.Error())
 	}
 
 	// Test with a bad service key
 	{
 		crypto := newRemoteCrypto(daemon.URL,
 			appId, badAppVersion, badTaskId,
-			pemRead("./resources/test/keys/config-public-key.pem"),
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
 			pemRead("./resources/test/keys/myservice-private-key.pem"))
 
-		plaintext, err := crypto.Decrypt(deployServiceKeySecret)
+		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
 		assert.Nil(t, plaintext)
 		assert.Equal(t, "Failed to decrypt using daemon (HTTP 400 Error: Failed to authenticate/decrypt request using service and master key (incorrect master key or hacking attempt? (Failed to decrypt (incorrect keys?))))", err.Error())
@@ -198,12 +176,11 @@ func TestRemoteCrypto(t *testing.T) {
 	{
 		crypto := newRemoteCrypto(daemon.URL,
 			appId, appVersion, badTaskId,
-			pemRead("./resources/test/keys/config-public-key.pem"),
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
 			pemRead("./resources/test/keys/myservice-private-key.pem"))
 
-		plaintext, err := crypto.Decrypt(deployServiceKeySecret)
+		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
 		assert.Nil(t, plaintext)
 		assert.Equal(t, "Failed to decrypt using daemon (HTTP 500 Error: Given taskId is not running (bug or hacking attempt?))", err.Error())
@@ -212,58 +189,33 @@ func TestRemoteCrypto(t *testing.T) {
 	// Test with a bad config public key
 	handler = decryptEndpointHandler(marathon.URL,
 		pemRead("./resources/test/keys/bad-public-key.pem"),
-		pemRead("./resources/test/keys/config-private-key.pem"),
 		pemRead("./resources/test/keys/master-private-key.pem"))
 
 	{
 		crypto := newRemoteCrypto(daemon.URL,
 			appId, appVersion, taskId,
-			pemRead("./resources/test/keys/config-public-key.pem"),
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
 			pemRead("./resources/test/keys/myservice-private-key.pem"))
 
-		plaintext, err := crypto.Decrypt(deployServiceKeySecret)
+		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
 		assert.Nil(t, plaintext)
 		assert.Equal(t, "Failed to decrypt using daemon (HTTP 400 Error: Failed to decrypt plaintext secret, incorrect config or master key? (Failed to decrypt (incorrect keys?)))", err.Error())
 	}
 
-	// Test with a bad config private key
-	handler = decryptEndpointHandler(marathon.URL,
-		pemRead("./resources/test/keys/config-public-key.pem"),
-		pemRead("./resources/test/keys/bad-private-key.pem"),
-		pemRead("./resources/test/keys/master-private-key.pem"))
-
-	{
-		crypto := newRemoteCrypto(daemon.URL,
-			appId, appVersion, taskId,
-			pemRead("./resources/test/keys/config-public-key.pem"),
-			pemRead("./resources/test/keys/master-public-key.pem"),
-			deployPrivateKey,
-			pemRead("./resources/test/keys/myservice-private-key.pem"))
-
-		plaintext, err := crypto.Decrypt(deployServiceKeySecret)
-		assert.NotNil(t, err)
-		assert.Nil(t, plaintext)
-		assert.Equal(t, "Failed to decrypt using daemon (HTTP 401 Error: Given secret isn't part of app config (bug or hacking attempt?))", err.Error())
-	}
-
 	// Test with a bad master private key
 	handler = decryptEndpointHandler(marathon.URL,
 		pemRead("./resources/test/keys/config-public-key.pem"),
-		pemRead("./resources/test/keys/config-private-key.pem"),
 		pemRead("./resources/test/keys/bad-private-key.pem"))
-
 	{
 		crypto := newRemoteCrypto(daemon.URL,
 			appId, appVersion, taskId,
-			pemRead("./resources/test/keys/config-public-key.pem"),
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
 			pemRead("./resources/test/keys/myservice-private-key.pem"))
 
-		plaintext, err := crypto.Decrypt(deployServiceKeySecret)
+		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
 		assert.Nil(t, plaintext)
 		assert.Equal(t, "Failed to decrypt using daemon (HTTP 400 Error: Failed to authenticate/decrypt request using deploy and master key (incorrect master key or hacking attempt? (Failed to decrypt (incorrect keys?))))", err.Error())

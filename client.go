@@ -28,40 +28,22 @@ func newKeyCrypto(publicKey *[32]byte, privateKey *[32]byte) *KeyCrypto {
 // Decrypts using the secretary daemon
 type RemoteCrypto struct {
 	DaemonUrl, AppId, AppVersion, TaskId        string
-	ConfigKey, MasterKey, DeployKey, ServiceKey *[32]byte
+	MasterKey, DeployKey, ServiceKey *[32]byte
 }
 
 func newRemoteCrypto(
 	daemonUrl string, appId string, appVersion string, taskId string,
-	configKey *[32]byte, masterKey *[32]byte, deployKey *[32]byte, serviceKey *[32]byte) *RemoteCrypto {
+	masterKey *[32]byte, deployKey *[32]byte, serviceKey *[32]byte) *RemoteCrypto {
 	return &RemoteCrypto{
 		DaemonUrl: daemonUrl, AppId: appId, AppVersion: appVersion, TaskId: taskId,
-		ConfigKey: configKey, MasterKey: masterKey, DeployKey: deployKey, ServiceKey: serviceKey}
+		MasterKey: masterKey, DeployKey: deployKey, ServiceKey: serviceKey}
 }
 
 func (self *RemoteCrypto) Decrypt(envelope string) ([]byte, error) {
-	// Authenticate with config key and decrypt with deploy key
-	requestedSecret, deployNonce, err := decryptEnvelopeNonce(self.ConfigKey, self.DeployKey, envelope)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to decrypt secret parameter using config key and deploy key (%s)", err))
-	}
-
-	var serviceNonce string
-	if self.ServiceKey != nil {
-		// Authenticate with config key and decrypt with optional service key
-		serviceEnvelope, nonce, err := decryptEnvelopeNonce(self.ConfigKey, self.ServiceKey, string(requestedSecret))
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Failed to decrypt secret parameter using config key and service key (%s)", err))
-		}
-
-		requestedSecret = serviceEnvelope
-		serviceNonce = encode(nonce[:])
-	}
-
 	message := DaemonRequest{
 		AppId: self.AppId, AppVersion: self.AppVersion, TaskId: self.TaskId,
-		RequestedSecret: string(requestedSecret),
-		DeployNonce:     encode(deployNonce[:]), ServiceNonce: serviceNonce}
+		RequestedSecret: envelope,
+	}
 	encoded, err := json.Marshal(message)
 	if err != nil {
 		return nil, err

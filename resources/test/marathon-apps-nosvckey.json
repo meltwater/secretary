@@ -9,10 +9,9 @@
       "DEPLOY_PRIVATE_KEY": "8Cw5ysGd14dRObahAX/MtPrkmc7tOVj6OX5lM8HxerI=",
       "SECRETARY_URL": "http://localhost:5070",
       "DEPLOY_PUBLIC_KEY": "omO6DSEw/mZDG9NuhyEC4uYbgwwqEivOuX0EqX9+Ql0=",
-      "DATABASE_PASSWORD": "ENC[NACL,5Jje+wI4faU6ilAjwkJmehY1THiRi6Lj+IcrgWuom7dn0HDM10aQdt2C4PQJLyjhZr8md0m5KVfAGi23aRFB5vKw30QCNBx4pIBHhgm0vP/W1/2DOf2KQr3Z+zPo0smoC0m54ugauBTuFpWf/QTKUuW1]",
+      "DATABASE_PASSWORD": "ENC[NACL,jpDAHM6WZe/1C93FLHd2M916U9AQwjT3VdvzQ7JHTHc57dLXsGE+oI8wDE2Fiw==]",
       "DATABASE": "mysql://$HOST:3306",
-      "DATABASE_USERNAME": "myuser",
-      "CONFIG_PUBLIC_KEY": "DbvlfSwpubWLYtSj/92thWsSSwqE9kjZP9Y1geKohE0="
+      "DATABASE_USERNAME": "myuser"
     },
     "instances": 3,
     "cpus": 0.1,
