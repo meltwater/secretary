@@ -8,8 +8,12 @@ secrets distribution and authorization in highly dynamic container environments.
 Secretary uses [Marathon](https://mesosphere.github.io/marathon/) to determine which
 service can access what secrets, and how to authenticate that service. This allows for
 delegation of secrets management to non-admin users and keeps configuration, secrets
-and software versions together throughout your delivery pipeline. Plaintext secrets
-are never stored on disk or visible outside the container.
+and software versions together throughout the delivery pipeline.
+
+Secretary is conceptually similar to [Puppet agent and server](https://docs.puppetlabs.com/puppet/4.2/reference/architecture.html#communications-and-security)
+certificates and [Hiera-Eyaml](https://puppetlabs.com/blog/encrypt-your-data-using-hiera-eyaml) but uses [NaCL](http://nacl.cr.yp.to/) public key
+cryptography instead of SSL certificates and PKCS#7 encryption. A key differences with Secretary is however that
+plaintext secrets are never stored to disk or otherwise made visible outside the container.
 
 ## System Components
 
@@ -18,7 +22,6 @@ are never stored on disk or visible outside the container.
 - `secretary daemon` running on master nodes behind a load balancer and with
    access to *master-private-key* and the Marathon REST API.
 - *config repo* containing environment specific config, public keys and encrypted secrets.
-
 
 ## Encryption
 Secretary uses [NaCL](http://nacl.cr.yp.to/) boxes through the golang
@@ -70,41 +73,32 @@ managed token-based systems like [Vault](https://github.com/hashicorp/vault) or
   system.
 
 ### Initial Secret Problem?
-In token-based systems a problem occurs where the token that gives access to secrets 
+In token-based systems a problem occurs where the token that gives access to secrets
 needs to be securely managed. Any holder of a token can use it to request the plaintext
 secrets. A token should typically not be checked into source control or it will be
 available to anyone with access to the *config repo*.
 
-Secretary mitigates this problem by encrypting secrets 1 time for storing in the
-*config repo* and an additional 2 times at deployment time. The innermost box is
-encrypted with the *master-public-key* and the outer boxes with *service* and 
-*deploy* keys. The inner box is stored in the *config repo* and the outer boxes
-are automatically created at deployment time.
-
-Authentication is performed at runtime by `secretary daemon`, which uses Marathon 
-to retrieve the public *deploy* and *service* keys. These keys are used to authenticate
-the client and make sure it's actually allowed to access the secret in question.
+Secretary mitigates this problem by storing encrypted secrets in the *config repo* and
+keeping them encrypted all the way into the runtime environment. Secrets are only ever 
+decrypted inside the container at startup and stored in environment variables visible
+only to the service.
 
 ### What is needed to get the secrets?
 
 In the runtime env:
 
-- Outermost encryption box from runtime config
+- Encrypted secret from runtime config
 - *Deploy* private key from runtime config
 - *Service* private key from Docker image or slave node
 - Network access to `secretary daemon`
 
 Or with access to the *config repo*:
 
-- Inner box from *config repo*
+- Encrypted secret from *config repo*
 - Master private key from master nodes
 
 
 ## Getting Started
-[Lighter](https://github.com/meltwater/lighter) helps automate deployments to Marathon
-and manage differences between environments. It automatically creates *deploy* keys
-and performs the deployment time encryption/signing.
-
 The *master* and *config* key pairs are created once and for each environment using
 `secretary genkeys`, which defaults to put keys into the ./keys/ directory. Provision
 all the keys to each master nodes, including the highly sensitive *master-private-key*.
@@ -113,8 +107,8 @@ Store *master-public-key* and *config private/public key* in the *config repo* t
 with other environment config and encrypted secrets. This enables users with access to the
 *config repo* to encrypt secrets and store them in the config.
 
-Generate a new *deploy* key for each deployment and encrypt secrets once more using both
-*deploy* and *service* keys. [Lighter](https://github.com/meltwater/lighter) will perform 
+Generate a new *deploy* key for each deployment and insert it into the `env` element
+of the Marathon app config. [Lighter](https://github.com/meltwater/lighter) will perform 
 this step automatically given this config example
 
 *someenv/globals.yml* - stored in the Lighter *config repo*
@@ -123,9 +117,6 @@ secretary:
   url: 'https://secretary-daemon-loadbalancer:5070'
   master:
     publickey: 'someenv/keys/master-public-key.pem'
-  config:
-    publickey: 'someenv/keys/config-public-key.pem'
-    privatekey: 'someenv/keys/config-private-key.pem'
 ```
 
 *someenv/myservice.yml* - stored in the Lighter *config repo*
@@ -197,9 +188,8 @@ An runtime config automatically expanded by Lighter might look like
     "id": "/myproduct/mysubsystem/myservice"
     ...
     "env" {
-        "SECRETARY_DAEMON_URL": "https://secretary-daemon-loadbalancer:5070",
+        "SECRETARY_URL": "https://secretary-daemon-loadbalancer:5070",
         "MASTER_PUBLIC_KEY": "MX+S1xWkxfKlZUvzaEhBLkIVWEkwIrEaD9uKXVC5IGE=",
-        "CONFIG_PUBLIC_KEY": "WiuMHYfHR/LHEuGb/ifiYvsN8ltAaY2qUnsbfNF/yn4=",
         "DEPLOY_PUBLIC_KEY": "0k+v11LV3SOr+XiFJ/ug0KcPPhwkXnVirmO65nAd1LI=",
         "DEPLOY_PRIVATE_KEY": "rEmz7Rt6tUnlC4TKYeNzePYg+p1ePAw4BAtfJAY4zzs=",
         "SERVICE_PUBLIC_KEY": "/1fbWGMTaR+lLQJnEsmxdfwWybKOpPQpyWB3FpNmOF4=",
@@ -217,10 +207,10 @@ environment variables, before starting the actual service.
 
 ```
 # Decrypt environment variables
-eval $(secretary decrypt -e -s "$SECRETARY_DAEMON_URL" --service-key=/service/keys/service-private-key.pem)
+eval $(secretary decrypt -e --service-key=/service/keys/service-private-key.pem)
 
 # .. or alternatively decrypt environment variables for setups without a service-private-key
-eval $(secretary decrypt -e -s "$SECRETARY_DAEMON_URL")
+eval $(secretary decrypt -e)
 
 # Start the main application (a Java service in this example)
 function launch {
@@ -232,21 +222,19 @@ launch java $JAVA_OPTS -jar /service/lib/standalone.jar $@
 
 The complete decryption sequence could be described as
 
-1. *secretary client* running in the container decrypts the outer 2 boxes using *deploy-private-key*
-   and *service-private-key*, authenticating with *config-public-key*.
-2. *client* asks the *secretary daemon* for the `DATABASE_PASSWORD` secret to be decrypted. This
+1. *client* asks the *secretary daemon* for the `DATABASE_PASSWORD` secret to be decrypted. This
    exchange is encrypted/authenticated using *master-public-key*, *deploy-private-key* and
    *service-private-key*.
-3. *daemon* retrieves `SERVICE_PUBLIC_KEY` and `DEPLOY_PUBLIC_KEY` from Marathon and uses it to
+2. *daemon* retrieves `SERVICE_PUBLIC_KEY` and `DEPLOY_PUBLIC_KEY` from Marathon and uses it to
     authenticate the service.
-4. *daemon* validates that the service has access to the given secret by checking the
+3. *daemon* validates that the service has access to the given secret by checking the
    `env` segment of its Marathon app config.
-5. *daemon* decrypts the secret using *master-private-key* and authenticates with *config-public-key*.
-6. *daemon* re-encrypts the plaintext secret with *service-public-key* and *deploy-public-key*,
+4. *daemon* decrypts the secret using *master-private-key* and authenticates with *config-public-key*.
+5. *daemon* re-encrypts the plaintext secret with *service-public-key* and *deploy-public-key*,
    signed with *master-private-key* before sending it back to the client.
-7. *client* decrypts the secret using *deploy-private-key* and *service-private-key*,
+6. *client* decrypts the secret using *deploy-private-key* and *service-private-key*,
    authenticating with *master-public-key*.
-8. *client* outputs a sh script `export DATABASE_PASSWORD='secret'` fragment that is sourced into the
+7. *client* outputs a sh script `export DATABASE_PASSWORD='secret'` fragment that is sourced into the
    service environment.
 
 ## Command Line Usage
@@ -264,26 +252,18 @@ set +o history
 # Generate an example service key
 ./secretary genkeys myservice
 
-# One level encryption for writing into deployment config files
+# Encrypt for writing into deployment config files
 echo -n secret | ./secretary encrypt
 
-# Decrypt one level encryption (requires access to master-private-key)
+# Decrypt (requires access to master-private-key)
 echo <encrypted> | ./secretary decrypt
-
-# Decrypt 3 level runtime encryption
-echo <encrypted> | ./secretary decrypt --private-key=./keys/mydeploy-private-key.pem | \
-                   ./secretary decrypt --private-key=./keys/myservice-private-key.pem | \
-                   ./secretary decrypt
-
-# Decrypt 2 level runtime encryption (no service key)
-echo <encrypted> | ./secretary decrypt --private-key=./keys/mydeploy-private-key.pem | \
-                   ./secretary decrypt
 ```
 
 ## Secretary Daemon
 Deploy several instances of the `secretary daemon` to trusted master nodes and create a
 load balancer in front of them to ensure high availability. The daemon defaults to
-bind to 5070/tcp.
+bind to 5070/tcp. The `secretary daemon` is completely stateless and can be load balanced
+easily.
 
 ### Systemd and CoreOS/Fleet
 Create a [Systemd unit](http://www.freedesktop.org/software/systemd/man/systemd.unit.html) file
@@ -345,8 +325,3 @@ docker::run_instance:
     env:
       - 'MARATHON_URL=http://localhost:8080'
 ```
-
-## TODO
-
-* Setuid secretary-cgi that decrypts the master key to avoid
-  giving `secretary daemon` direct access to master private key.
