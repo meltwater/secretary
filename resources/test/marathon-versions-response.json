@@ -11,7 +11,8 @@
     "DATABASE_PASSWORD": "ENC[NACL,jpDAHM6WZe/1C93FLHd2M916U9AQwjT3VdvzQ7JHTHc57dLXsGE+oI8wDE2Fiw==]",
     "SERVICE_PUBLIC_KEY": "kVOhhw2wAJuAofxO7h4EM0xboxGAwnsq9J6fluFY5CQ=",
     "DATABASE": "mysql://$HOST:3306",
-    "DATABASE_USERNAME": "myuser"
+    "DATABASE_USERNAME": "myuser",
+    "SSH_KEY": " ENC[NACL,egFSuFDkZxsmv9w7bWyZyxCBQQeykctG2H6UTiK7EHRdQI3E3NsZBP8 \n 4Gqy8c5kh8BYErki6F0eqKAxd3u/QcOuMD17YgqTGiE/PMlO75yCuBzCnZNW7Y4b\n5Ww03v6uo1Fr/ew==] "
   },
   "instances": 3,
   "cpus": 0.1,

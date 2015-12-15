@@ -92,6 +92,21 @@ func TestRemoteCrypto(t *testing.T) {
 		assert.Equal(t, "secret", string(plaintext))
 	}
 
+	// Test decryption of a multi-line block
+	{
+		encryptedKey := "ENC[NACL,egFSuFDkZxsmv9w7bWyZyxCBQQeykctG2H6UTiK7EHRdQI3E3NsZBP84Gqy8c5kh8BYErki6F0eqKAxd3u/QcOuMD17YgqTGiE/PMlO75yCuBzCnZNW7Y4b5Ww03v6uo1Fr/ew==]"
+
+		crypto := newRemoteCrypto(daemon.URL,
+			appId, appVersion, taskId,
+			pemRead("./resources/test/keys/master-public-key.pem"),
+			deployPrivateKey,
+			pemRead("./resources/test/keys/myservice-private-key.pem"))
+
+		plaintext, err := crypto.Decrypt(encryptedKey)
+		assert.Nil(t, err)
+		assert.Equal(t, "123456789012345678901234567890123456789012345678901234567890", string(plaintext))
+	}
+
 	// Test without a service key
 	{
 		crypto := newRemoteCrypto(daemon.URL,

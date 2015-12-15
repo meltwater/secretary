@@ -57,7 +57,7 @@ func decryptRequest(app *MarathonApp, masterKey *[32]byte, serviceEnvelope strin
 func verifyAuthorization(app *MarathonApp, request *DaemonRequest) (bool, error) {
 	// Verify that encrypted string is present in app config
 	for _, value := range app.Env {
-		if value == request.RequestedSecret {
+		if stripWhitespace(value) == request.RequestedSecret {
 			return true, nil
 		}
 	}
