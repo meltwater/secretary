@@ -69,7 +69,7 @@ func TestRemoteCrypto(t *testing.T) {
 			http.Error(w, fmt.Sprintf("Bad URL %s", r.URL.Path), http.StatusNotFound)
 		}
 	}))
-	
+
 	defer daemon.Close()
 
 	deployPrivateKey, err := pemDecode("8Cw5ysGd14dRObahAX/MtPrkmc7tOVj6OX5lM8HxerI=")

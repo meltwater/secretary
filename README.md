@@ -205,6 +205,16 @@ An runtime config automatically expanded by Lighter might look like
 Docker images should embed the `secretary` executable. Call it at container startup to decrypt
 environment variables, before starting the actual service.
 
+*Dockerfile*
+```
+# Install secretary
+ENV SECRETARY_VERSION x.y.z
+RUN curl -fsSLo /usr/bin/secretary "https://github.com/meltwater/secretary/releases/download/${SECRETARY_VERSION}/secretary-`uname -s`-`uname -m`" && \
+    chmod +x /usr/bin/secretary
+
+```
+
+Container startup examples
 ```
 # Decrypt environment variables
 eval $(secretary decrypt -e --service-key=/service/keys/service-private-key.pem)
@@ -319,7 +329,7 @@ ExecStartPre=-/usr/bin/docker pull ${IMAGE}
 ExecStart=/usr/bin/docker run --name=${NAME} \
     -p 5070:5070 \
     -v /etc/secretary/master-keys:/keys \
-    -e MARATHON_URL=http://localhost:8080 \
+    -e MARATHON_URL=http://marathon-host:8080 \
     $IMAGE
 
 ExecStop=/usr/bin/docker stop $NAME
@@ -345,5 +355,5 @@ docker::run_instance:
     volumes:
       - '/etc/secretary/master-keys:/keys'
     env:
-      - 'MARATHON_URL=http://localhost:8080'
+      - 'MARATHON_URL=http://marathon-host:8080'
 ```

@@ -27,8 +27,8 @@ func newKeyCrypto(publicKey *[32]byte, privateKey *[32]byte) *KeyCrypto {
 
 // Decrypts using the secretary daemon
 type RemoteCrypto struct {
-	DaemonUrl, AppId, AppVersion, TaskId        string
-	MasterKey, DeployKey, ServiceKey *[32]byte
+	DaemonUrl, AppId, AppVersion, TaskId string
+	MasterKey, DeployKey, ServiceKey     *[32]byte
 }
 
 func newRemoteCrypto(
