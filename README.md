@@ -237,6 +237,28 @@ The complete decryption sequence could be described as
 7. *client* outputs a sh script `export DATABASE_PASSWORD='secret'` fragment that is sourced into the
    service environment.
 
+## Installation
+Place a `secretary` script in the root of your configuration repo. Replace the SECRETARY_VERSION with
+a version from the [releases page](https://github.com/meltwater/secretary/releases).
+
+```
+#!/bin/bash
+set -e
+
+SECRETARY_VERSION="x.y.z"
+
+BASEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SECRETARY="$BASEDIR/target/secretary-`uname -s`-`uname -m`-${SECRETARY_VERSION}"
+
+if [ ! -x "$SECRETARY" ]; then
+    mkdir -p $(dirname "$SECRETARY")
+    curl -sSfLo "$SECRETARY" https://github.com/meltwater/secretary/releases/download/${SECRETARY_VERSION}/secretary-`uname -s`-`uname -m`
+    chmod +x "$SECRETARY"
+fi
+
+exec "$SECRETARY" $@
+```
+
 ## Command Line Usage
 
 ```
