@@ -46,6 +46,33 @@ func TestFindKey(t *testing.T) {
 	assert.Nil(t, findKey("", "RANDOM_ENVVAR_THAT_DOESNT_EXIST", "./resources/test/keys/nonexist-public-key.pem"))
 }
 
+func TestExtractEnvelopes(t *testing.T) {
+	envelopes, err := extractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/")
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(envelopes))
+	assert.Equal(t, []string{"ENC[NACL,uSr123+/=]", "ENC[NACL,pWd123+/=]"}, envelopes)
+	
+	envelopes, err = extractEnvelopes("amqp://ENC[NACL,]:ENC[NACL,pWd123+/=]@rabbit:5672/")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(envelopes))
+	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
+	
+	envelopes, err = extractEnvelopes("amqp://ENC[NACL,:ENC[NACL,pWd123+/=]@rabbit:5672/")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(envelopes))
+	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
+	
+	envelopes, err = extractEnvelopes("amqp://NC[NACL,]:ENC[NACL,pWd123+/=]@rabbit:5672/")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(envelopes))
+	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
+	
+	envelopes, err = extractEnvelopes("amqp://ENC[NACL,abc:ENC[NACL,pWd123+/=]@rabbit:5672/")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(envelopes))
+	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
+}
+
 func TestIsEnvelope(t *testing.T) {
 	assert.True(t, isEnvelope("ENC[NACL,]"))
 	assert.True(t, isEnvelope("ENC[NACL,abc]"))
