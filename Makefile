@@ -16,7 +16,7 @@ build:
 	 ln -sf "secretary-`uname -s`-`uname -m`" secretary
 
 test:
-	go test -v -coverprofile=coverage.txt -covermode=atomic
+	go test -bench=. -v -coverprofile=coverage.txt -covermode=atomic
 
 clean:
 	rm -f ./secretary
