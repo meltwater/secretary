@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -144,6 +145,11 @@ func genkey(publicKeyFile string, privateKeyFile string) {
 
 	pemWrite(publicKey, publicKeyFile, "NACL PUBLIC KEY", 0644)
 	pemWrite(privateKey, privateKeyFile, "NACL PRIVATE KEY", 0600)
+}
+
+func extractEnvelopes(payload string) []string {
+	re := regexp.MustCompile("ENC\\[NACL,[a-zA-Z0-9+/=]+\\]")
+	return re.FindAllString(payload, 2)
 }
 
 func isEnvelope(envelope string) bool {

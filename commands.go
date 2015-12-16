@@ -33,11 +33,19 @@ func decryptStream(input io.Reader, output io.Writer, crypto Crypto) {
 	envelope, err := ioutil.ReadAll(input)
 	check(err, "Failed to read encrypted data from standard input")
 
-	mangled := stripWhitespace(string(envelope))
-	plaintext, err := crypto.Decrypt(mangled)
-	check(err)
+	result := stripWhitespace(string(envelope))
+	envelopes := extractEnvelopes(result)
 
-	output.Write(plaintext)
+	if len(envelopes) > 0 {
+		for _, envelope := range envelopes {
+			plaintext, err := crypto.Decrypt(envelope)
+			check(err)
+
+			result = strings.Replace(result, envelope, string(plaintext), 1)
+		}
+	}
+
+	output.Write([]byte(result))
 }
 
 // Decrypts environment variables and writes them to stdout
@@ -47,18 +55,23 @@ func decryptEnvironment(input []string, output io.Writer, crypto Crypto) {
 	for _, item := range input {
 		keyval := strings.SplitN(item, "=", 2)
 		key, value := keyval[0], keyval[1]
-		mangled := stripWhitespace(value)
 
-		if isEnvelope(mangled) {
-			plaintext, err := crypto.Decrypt(mangled)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: %s\n", key, err)
-				haserr = true
-				continue
+		result := stripWhitespace(value)
+		envelopes := extractEnvelopes(result)
+
+		if len(envelopes) > 0 {
+			for _, envelope := range envelopes {
+				plaintext, err := crypto.Decrypt(envelope)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s: %s\n", key, err)
+					haserr = true
+					continue
+				}
+
+				result = strings.Replace(result, envelope, string(plaintext), 1)
 			}
 
-			// TODO: needs shell escaping of plaintext value
-			fmt.Fprintf(output, "export %s='%s'\n", key, plaintext)
+			fmt.Fprintf(output, "export %s='%s'\n", key, result)
 		}
 	}
 
