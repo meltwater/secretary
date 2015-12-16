@@ -6,13 +6,14 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/nacl/box"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"golang.org/x/crypto/nacl/box"
 )
 
 var envelopeRegexp = regexp.MustCompile("ENC\\[NACL,[a-zA-Z0-9+/=\\s]+\\]")

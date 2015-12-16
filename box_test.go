@@ -2,9 +2,10 @@ package main
 
 import (
 	"crypto/rand"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/nacl/box"
-	"testing"
 )
 
 const privateKey = `Q1PuWtB1E7F1sLpvfBGjL+ZuH+fSCOvMDqTyRQE4GTg=`

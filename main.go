@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/go-errors/errors"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 func main() {
