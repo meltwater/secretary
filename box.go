@@ -11,8 +11,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"regexp"
+	"strings"
 )
 
 // Converts a byte slice to the [32]byte expected by NaCL
@@ -147,15 +147,9 @@ func genkey(publicKeyFile string, privateKeyFile string) {
 	pemWrite(privateKey, privateKeyFile, "NACL PRIVATE KEY", 0600)
 }
 
-func extractEnvelopes(payload string) (envelopes []string, err error) {
+func extractEnvelopes(payload string) []string {
 	re := regexp.MustCompile("ENC\\[NACL,[a-zA-Z0-9+/=]+\\]")
-
-	res := re.FindAllString(payload, 2)
-	if len(res) == 0 {
-		return nil, errors.New("Couldn't find any envelopes in payload: " + payload)
-	}
-	
-	return res, nil
+	return re.FindAllString(payload, 2)
 }
 
 func isEnvelope(envelope string) bool {

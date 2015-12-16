@@ -33,16 +33,14 @@ func decryptStream(input io.Reader, output io.Writer, crypto Crypto) {
 	envelope, err := ioutil.ReadAll(input)
 	check(err, "Failed to read encrypted data from standard input")
 
-	mangled := stripWhitespace(string(envelope))
-	result := mangled
-	
-	envelopes, err := extractEnvelopes(mangled)
-		
-	if err == nil && len(envelopes) > 0 {	
+	result := stripWhitespace(string(envelope))
+	envelopes := extractEnvelopes(result)
+
+	if len(envelopes) > 0 {
 		for _, envelope := range envelopes {
 			plaintext, err := crypto.Decrypt(envelope)
 			check(err)
-			
+
 			result = strings.Replace(result, envelope, string(plaintext), 1)
 		}
 	}
@@ -57,12 +55,11 @@ func decryptEnvironment(input []string, output io.Writer, crypto Crypto) {
 	for _, item := range input {
 		keyval := strings.SplitN(item, "=", 2)
 		key, value := keyval[0], keyval[1]
-		mangled := stripWhitespace(value)
-		result := mangled
-		
-		envelopes, err := extractEnvelopes(mangled)
-		
-		if err == nil && len(envelopes) > 0 {	
+
+		result := stripWhitespace(value)
+		envelopes := extractEnvelopes(result)
+
+		if len(envelopes) > 0 {
 			for _, envelope := range envelopes {
 				plaintext, err := crypto.Decrypt(envelope)
 				if err != nil {
@@ -70,9 +67,10 @@ func decryptEnvironment(input []string, output io.Writer, crypto Crypto) {
 					haserr = true
 					continue
 				}
-				
+
 				result = strings.Replace(result, envelope, string(plaintext), 1)
 			}
+
 			fmt.Fprintf(output, "export %s='%s'\n", key, result)
 		}
 	}
