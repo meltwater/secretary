@@ -30,15 +30,14 @@ func encryptCommand(input io.Reader, output io.Writer, publicKey *[32]byte, priv
 
 // Decrypts data from stdin and writes to stdout
 func decryptStream(input io.Reader, output io.Writer, crypto Crypto) {
-	envelope, err := ioutil.ReadAll(input)
+	payload, err := ioutil.ReadAll(input)
 	check(err, "Failed to read encrypted data from standard input")
+	result := string(payload)
 
-	result := stripWhitespace(string(envelope))
-	envelopes := extractEnvelopes(result)
-
+	envelopes := extractEnvelopes(string(payload))
 	if len(envelopes) > 0 {
 		for _, envelope := range envelopes {
-			plaintext, err := crypto.Decrypt(envelope)
+			plaintext, err := crypto.Decrypt(stripWhitespace(envelope))
 			check(err)
 
 			result = strings.Replace(result, envelope, string(plaintext), 1)
@@ -55,13 +54,12 @@ func decryptEnvironment(input []string, output io.Writer, crypto Crypto) {
 	for _, item := range input {
 		keyval := strings.SplitN(item, "=", 2)
 		key, value := keyval[0], keyval[1]
+		result := value
 
-		result := stripWhitespace(value)
-		envelopes := extractEnvelopes(result)
-
+		envelopes := extractEnvelopes(value)
 		if len(envelopes) > 0 {
 			for _, envelope := range envelopes {
-				plaintext, err := crypto.Decrypt(envelope)
+				plaintext, err := crypto.Decrypt(stripWhitespace(envelope))
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s: %s\n", key, err)
 					haserr = true

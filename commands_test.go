@@ -87,3 +87,25 @@ func TestDecryptEnvironmentCommandSubstrings(t *testing.T) {
 
 	assert.Equal(t, "export b='blablasecretblablasecret2'\n", output.String())
 }
+
+func TestDecryptEnvironmentCommandSubstringsSpaces(t *testing.T) {
+	var output bytes.Buffer
+
+	configPublicKey := pemRead("./resources/test/keys/config-public-key.pem")
+	configPrivateKey := pemRead("./resources/test/keys/config-private-key.pem")
+	masterPublicKey := pemRead("./resources/test/keys/master-public-key.pem")
+	masterPrivateKey := pemRead("./resources/test/keys/master-private-key.pem")
+
+	encrypted, err := encryptEnvelope(masterPublicKey, configPrivateKey, []byte("secret"))
+	assert.Nil(t, err)
+
+	encrypted2, err := encryptEnvelope(masterPublicKey, configPrivateKey, []byte("secret2"))
+	assert.Nil(t, err)
+
+	input := []string{"a=b", fmt.Sprintf("b=blabla %sb la bla %s", encrypted, encrypted2), "c=d"}
+
+	crypto := newKeyCrypto(configPublicKey, masterPrivateKey)
+	decryptEnvironment(input, &output, crypto)
+
+	assert.Equal(t, "export b='blabla secretb la bla secret2'\n", output.String())
+}
