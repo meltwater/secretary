@@ -125,3 +125,9 @@ func TestEncryptEnvelope(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "secret", string(plaintext), "Should decrypt plaintext")
 }
+
+func BenchmarkExtractEnvelopes(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+    	extractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/")
+    }
+}

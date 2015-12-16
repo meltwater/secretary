@@ -15,6 +15,8 @@ import (
 	"strings"
 )
 
+var envelopeRegexp = regexp.MustCompile("ENC\\[NACL,[a-zA-Z0-9+/=]+\\]")
+
 // Converts a byte slice to the [32]byte expected by NaCL
 func asKey(data []byte) (*[32]byte, error) {
 	if len(data) != 32 {
@@ -148,8 +150,7 @@ func genkey(publicKeyFile string, privateKeyFile string) {
 }
 
 func extractEnvelopes(payload string) []string {
-	re := regexp.MustCompile("ENC\\[NACL,[a-zA-Z0-9+/=]+\\]")
-	return re.FindAllString(payload, 2)
+	return envelopeRegexp.FindAllString(payload, 2)
 }
 
 func isEnvelope(envelope string) bool {
