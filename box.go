@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-var envelopeRegexp = regexp.MustCompile("ENC\\[NACL,[a-zA-Z0-9+/=]+\\]")
+var envelopeRegexp = regexp.MustCompile("ENC\\[NACL,[a-zA-Z0-9+/=\\s]+\\]")
 
 // Converts a byte slice to the [32]byte expected by NaCL
 func asKey(data []byte) (*[32]byte, error) {
