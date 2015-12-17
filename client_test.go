@@ -76,14 +76,14 @@ func TestRemoteCrypto(t *testing.T) {
 	deployPrivateKey, err := pemDecode("8Cw5ysGd14dRObahAX/MtPrkmc7tOVj6OX5lM8HxerI=")
 	assert.Nil(t, err)
 
-	appId, appVersion, taskId := "/demo/webapp", "2015-12-04T12:25:08.426Z", "demo_webapp.0f810e10-9a82-11e5-94c7-6a515f434e2d"
-	badAppVersion, badTaskId := "2015-11-04T12:25:08.426Z", "demo_webapp.0f844265-9a82-11e5-94c7-6a515f434e2d"
+	appID, appVersion, taskID := "/demo/webapp", "2015-12-04T12:25:08.426Z", "demo_webapp.0f810e10-9a82-11e5-94c7-6a515f434e2d"
+	badAppVersion, badTaskID := "2015-11-04T12:25:08.426Z", "demo_webapp.0f844265-9a82-11e5-94c7-6a515f434e2d"
 	encryptedSecret := "ENC[NACL,jpDAHM6WZe/1C93FLHd2M916U9AQwjT3VdvzQ7JHTHc57dLXsGE+oI8wDE2Fiw==]"
 
 	// Test decryption with both deploy and service keys
 	{
 		crypto := newRemoteCrypto(daemon.URL,
-			appId, appVersion, taskId,
+			appID, appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
 			pemRead("./resources/test/keys/myservice-private-key.pem"))
@@ -98,7 +98,7 @@ func TestRemoteCrypto(t *testing.T) {
 		encryptedKey := "ENC[NACL,egFSuFDkZxsmv9w7bWyZyxCBQQeykctG2H6UTiK7EHRdQI3E3NsZBP84Gqy8c5kh8BYErki6F0eqKAxd3u/QcOuMD17YgqTGiE/PMlO75yCuBzCnZNW7Y4b5Ww03v6uo1Fr/ew==]"
 
 		crypto := newRemoteCrypto(daemon.URL,
-			appId, appVersion, taskId,
+			appID, appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
 			pemRead("./resources/test/keys/myservice-private-key.pem"))
@@ -111,7 +111,7 @@ func TestRemoteCrypto(t *testing.T) {
 	// Test without a service key
 	{
 		crypto := newRemoteCrypto(daemon.URL,
-			"/demo/webapp2", appVersion, taskId,
+			"/demo/webapp2", appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey, nil)
 
@@ -123,7 +123,7 @@ func TestRemoteCrypto(t *testing.T) {
 	// Test with a secret that's correct but not part of config
 	{
 		crypto := newRemoteCrypto(daemon.URL,
-			"/demo/webapp2", appVersion, taskId,
+			"/demo/webapp2", appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey, nil)
 
@@ -136,7 +136,7 @@ func TestRemoteCrypto(t *testing.T) {
 	// Test decryption with bad deploy key
 	{
 		crypto := newRemoteCrypto(daemon.URL,
-			appId, appVersion, taskId,
+			appID, appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			pemRead("./resources/test/keys/bad-private-key.pem"),
 			pemRead("./resources/test/keys/myservice-private-key.pem"))
@@ -150,7 +150,7 @@ func TestRemoteCrypto(t *testing.T) {
 	// Test decryption with bad service key
 	{
 		crypto := newRemoteCrypto(daemon.URL,
-			appId, appVersion, taskId,
+			appID, appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
 			pemRead("./resources/test/keys/bad-private-key.pem"))
@@ -164,7 +164,7 @@ func TestRemoteCrypto(t *testing.T) {
 	// Test with a bad master key
 	{
 		crypto := newRemoteCrypto(daemon.URL,
-			"/demo/webapp", appVersion, taskId,
+			"/demo/webapp", appVersion, taskID,
 			pemRead("./resources/test/keys/bad-public-key.pem"),
 			deployPrivateKey, nil)
 
@@ -177,7 +177,7 @@ func TestRemoteCrypto(t *testing.T) {
 	// Test with a bad service key
 	{
 		crypto := newRemoteCrypto(daemon.URL,
-			appId, badAppVersion, badTaskId,
+			appID, badAppVersion, badTaskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
 			pemRead("./resources/test/keys/myservice-private-key.pem"))
@@ -191,7 +191,7 @@ func TestRemoteCrypto(t *testing.T) {
 	// Test with a appVersion and taskId mismatch
 	{
 		crypto := newRemoteCrypto(daemon.URL,
-			appId, appVersion, badTaskId,
+			appID, appVersion, badTaskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
 			pemRead("./resources/test/keys/myservice-private-key.pem"))
@@ -209,7 +209,7 @@ func TestRemoteCrypto(t *testing.T) {
 
 	{
 		crypto := newRemoteCrypto(daemon.URL,
-			appId, appVersion, taskId,
+			appID, appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
 			pemRead("./resources/test/keys/myservice-private-key.pem"))
@@ -226,7 +226,7 @@ func TestRemoteCrypto(t *testing.T) {
 		pemRead("./resources/test/keys/bad-private-key.pem"))
 	{
 		crypto := newRemoteCrypto(daemon.URL,
-			appId, appVersion, taskId,
+			appID, appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
 			pemRead("./resources/test/keys/myservice-private-key.pem"))

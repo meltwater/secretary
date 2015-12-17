@@ -6,6 +6,7 @@ get:
 	go get github.com/stretchr/testify/assert
 	go get golang.org/x/crypto/nacl/box
 	go get golang.org/x/tools/cmd/cover
+	go get -u github.com/golang/lint/golint
 
 # http://golang.org/cmd/go/#hdr-Run_gofmt_on_package_sources
 fmt:
@@ -17,6 +18,7 @@ build:
 
 test:
 	go test -bench=. -v -coverprofile=coverage.txt -covermode=atomic
+	golint
 
 clean:
 	rm -f ./secretary

@@ -8,48 +8,50 @@ import (
 	"strings"
 )
 
-// Marathon /v2/apps/{app_id}/tasks response struct
+// MarathonTaskResponse is the /v2/apps/{app_id}/tasks response struct
 type MarathonTaskResponse struct {
-	Id      string
+	ID      string
 	Version string
 }
 
-// Marathon /v2/apps/{app_id} response struct
+// MarathonAppResponse is the /v2/apps/{app_id} response struct
 type MarathonAppResponse struct {
-	Id, Version string
+	ID, Version string
 	Tasks       []MarathonTaskResponse
 }
 
+// MarathonAppsResponse is wrapping MarathonAppResponse
 type MarathonAppsResponse struct {
 	App MarathonAppResponse
 }
 
-// Marathon /v2/apps/{app_id}/versions/{version} response struct
+// MarathonVersionResponse is the /v2/apps/{app_id}/versions/{version}
+// response struct
 type MarathonVersionResponse struct {
-	Id, Version string
+	ID, Version string
 	Env         map[string]string
 }
 
-// Result struct from getMarathonApp
+// MarathonApp is the result struct from getMarathonApp
 type MarathonApp struct {
-	Id, Version, TaskId string
+	ID, Version, TaskID string
 	DeployKey           *[32]byte
 	ServiceKey          *[32]byte
 	Env                 map[string]string
 }
 
-func verifyRunningTask(appId string, appVersion string, taskId string, body []byte) (bool, error) {
+func verifyRunningTask(appID string, appVersion string, taskID string, body []byte) (bool, error) {
 	// Parse the JSON response
 	var app MarathonAppsResponse
 	err := json.Unmarshal(body, &app)
-	if err != nil || app.App.Id != appId {
-		return false, errors.New(fmt.Sprintf("Failed to parse Marathon JSON response (%s): %s", err, string(body)))
+	if err != nil || app.App.ID != appID {
+		return false, fmt.Errorf("Failed to parse Marathon JSON response (%s): %s", err, string(body))
 	}
 
 	// Check running tasks for this app and verify that the given taskId is present
 	isActiveTaskid := false
 	for _, task := range app.App.Tasks {
-		if task.Id == taskId && task.Version == appVersion {
+		if task.ID == taskID && task.Version == appVersion {
 			isActiveTaskid = true
 			break
 		}
@@ -62,12 +64,12 @@ func verifyRunningTask(appId string, appVersion string, taskId string, body []by
 	return true, nil
 }
 
-func parseApplicationVersion(appId string, appVersion string, taskId string, body []byte) (*MarathonApp, error) {
+func parseApplicationVersion(appID string, appVersion string, taskID string, body []byte) (*MarathonApp, error) {
 	// Parse the JSON response
 	var taskVersion MarathonVersionResponse
 	err := json.Unmarshal(body, &taskVersion)
-	if err != nil || taskVersion.Id != appId || taskVersion.Version != appVersion {
-		return nil, errors.New(fmt.Sprintf("Failed to parse Marathon JSON response (%s): %s", err, string(body)))
+	if err != nil || taskVersion.ID != appID || taskVersion.Version != appVersion {
+		return nil, fmt.Errorf("Failed to parse Marathon JSON response (%s): %s", err, string(body))
 	}
 
 	// Extract the deploy public key
@@ -78,7 +80,7 @@ func parseApplicationVersion(appId string, appVersion string, taskId string, bod
 
 	deployKey, err := pemDecode(encodedDeployKey)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to decode $DEPLOY_PUBLIC_KEY (%s)", err))
+		return nil, fmt.Errorf("Failed to decode $DEPLOY_PUBLIC_KEY (%s)", err)
 	}
 
 	// Extract the optional service public key
@@ -87,38 +89,40 @@ func parseApplicationVersion(appId string, appVersion string, taskId string, bod
 	if ok {
 		serviceKey, err = pemDecode(encodedServiceKey)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Failed to decode $SERVICE_PUBLIC_KEY (%s)", err))
+			return nil, fmt.Errorf("Failed to decode $SERVICE_PUBLIC_KEY (%s)", err)
 		}
 	}
 
-	return &MarathonApp{Id: taskVersion.Id, Version: taskVersion.Version, TaskId: taskId, DeployKey: deployKey, ServiceKey: serviceKey, Env: taskVersion.Env}, nil
+	return &MarathonApp{ID: taskVersion.ID, Version: taskVersion.Version,
+		TaskID: taskID, DeployKey: deployKey, ServiceKey: serviceKey,
+		Env: taskVersion.Env}, nil
 }
 
-func getMarathonApp(marathonUrl string, appId string, appVersion string, taskId string) (*MarathonApp, error) {
+func getMarathonApp(marathonURL string, appID string, appVersion string, taskID string) (*MarathonApp, error) {
 	// Validate that given taskId is actually still running (old deploy keys shouldn't be allows to access any secrets)
 	{
 		// Fetch the list of running tasks for this app
-		url := fmt.Sprintf("%s/v2/apps/%s?embed=apps.tasks", marathonUrl,
-			strings.Replace(strings.Replace(url.QueryEscape(strings.TrimLeft(appId, "/")), "..", "", -1), "%2F", "/", -1))
+		url := fmt.Sprintf("%s/v2/apps/%s?embed=apps.tasks", marathonURL,
+			strings.Replace(strings.Replace(url.QueryEscape(strings.TrimLeft(appID, "/")), "..", "", -1), "%2F", "/", -1))
 		body, err := httpGet(url)
 		if err != nil {
 			return nil, err
 		}
 
-		ok, err := verifyRunningTask(appId, appVersion, taskId, body)
+		ok, err := verifyRunningTask(appID, appVersion, taskID, body)
 		if !ok {
 			return nil, err
 		}
 	}
 
 	// Fetch the exact app config version for this task
-	url := fmt.Sprintf("%s/v2/apps/%s/versions/%s", marathonUrl,
-		strings.Replace(strings.Replace(url.QueryEscape(strings.TrimLeft(appId, "/")), "..", "", -1), "%2F", "/", -1),
+	url := fmt.Sprintf("%s/v2/apps/%s/versions/%s", marathonURL,
+		strings.Replace(strings.Replace(url.QueryEscape(strings.TrimLeft(appID, "/")), "..", "", -1), "%2F", "/", -1),
 		url.QueryEscape(appVersion))
 	body, err := httpGet(url)
 	if err != nil {
 		return nil, err
 	}
 
-	return parseApplicationVersion(appId, appVersion, taskId, body)
+	return parseApplicationVersion(appID, appVersion, taskID, body)
 }
