@@ -32,10 +32,10 @@ type RemoteCrypto struct {
 }
 
 func newRemoteCrypto(
-	daemonUrl string, appID string, appVersion string, taskID string,
+	daemonURL string, appID string, appVersion string, taskID string,
 	masterKey *[32]byte, deployKey *[32]byte, serviceKey *[32]byte) *RemoteCrypto {
 	return &RemoteCrypto{
-		DaemonURL: daemonUrl, AppID: appID, AppVersion: appVersion, TaskID: taskID,
+		DaemonURL: daemonURL, AppID: appID, AppVersion: appVersion, TaskID: taskID,
 		MasterKey: masterKey, DeployKey: deployKey, ServiceKey: serviceKey}
 }
 
