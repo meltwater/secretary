@@ -1,12 +1,14 @@
-all: get fmt build test
+export GO15VENDOREXPERIMENT=1
 
-get:
-	go get github.com/go-errors/errors
-	go get github.com/spf13/cobra
-	go get github.com/stretchr/testify/assert
-	go get golang.org/x/crypto/nacl/box
-	go get golang.org/x/tools/cmd/cover
+all: tools deps fmt build test lint
+
+tools:
+	go get -u golang.org/x/tools/cmd/cover
 	go get -u github.com/golang/lint/golint
+	go get -u github.com/Masterminds/glide
+
+deps:
+	glide install
 
 # http://golang.org/cmd/go/#hdr-Run_gofmt_on_package_sources
 fmt:
@@ -18,6 +20,8 @@ build:
 
 test:
 	go test -bench=. -v -coverprofile=coverage.txt -covermode=atomic
+
+lint:
 	golint
 
 clean:
@@ -26,4 +30,4 @@ clean:
 docker:
 	docker build -t meltwater/secretary:latest .
 
-.PHONY: get fmt build test clean
+.PHONY: tools deps fmt build test lint clean

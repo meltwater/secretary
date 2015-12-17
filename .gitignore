@@ -2,3 +2,4 @@ secretary*
 target
 coverage.txt
 .vscode
+vendor/
