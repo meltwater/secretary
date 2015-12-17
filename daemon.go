@@ -8,13 +8,15 @@ import (
 	"net/http"
 )
 
+// DaemonRequest TODO
 type DaemonRequest struct {
-	AppId, AppVersion, TaskId string
+	AppID, AppVersion, TaskID string
 
 	// Secret encrypted with master key
 	RequestedSecret string
 }
 
+// DaemonResponse TODO
 type DaemonResponse struct {
 	PlaintextSecret string
 }
@@ -28,14 +30,14 @@ func decryptRequest(app *MarathonApp, masterKey *[32]byte, serviceEnvelope strin
 	// Authenticate with deploy key and decrypt
 	body, err := decryptEnvelope(app.DeployKey, masterKey, serviceEnvelope)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to authenticate/decrypt request using deploy and master key (incorrect master key or hacking attempt? (%s))", err))
+		return nil, fmt.Errorf("Failed to authenticate/decrypt request using deploy and master key (incorrect master key or hacking attempt? (%s))", err)
 	}
 
 	// Authenticate with optional service key and decrypt
 	if app.ServiceKey != nil {
 		body, err = decryptEnvelope(app.ServiceKey, masterKey, string(body))
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Failed to authenticate/decrypt request using service and master key (incorrect master key or hacking attempt? (%s))", err))
+			return nil, fmt.Errorf("Failed to authenticate/decrypt request using service and master key (incorrect master key or hacking attempt? (%s))", err)
 		}
 	}
 
@@ -43,11 +45,11 @@ func decryptRequest(app *MarathonApp, masterKey *[32]byte, serviceEnvelope strin
 	var request DaemonRequest
 	err = json.Unmarshal(body, &request)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to parse JSON request (%s)", err))
+		return nil, fmt.Errorf("Failed to parse JSON request (%s)", err)
 	}
 
 	// Validate that appId, appVersion, taskId corresponds to HTTP request params
-	if request.AppId != app.Id || request.AppVersion != app.Version || request.TaskId != app.TaskId {
+	if request.AppID != app.ID || request.AppVersion != app.Version || request.TaskID != app.TaskID {
 		return nil, errors.New("Given appid,appversion,taskid doesn't correspond to HTTP request params (bug or hacking attempt?)")
 	}
 
@@ -90,7 +92,7 @@ func encryptResponse(app *MarathonApp, masterKey *[32]byte, plaintext []byte) ([
 	return []byte(encrypted), nil
 }
 
-func decryptEndpointHandler(marathonUrl string, configPublicKey *[32]byte, masterKey *[32]byte) func(http.ResponseWriter, *http.Request) {
+func decryptEndpointHandler(marathonURL string, configPublicKey *[32]byte, masterKey *[32]byte) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			errorResponse(w, r, "Expected POST method", http.StatusMethodNotAllowed)
@@ -103,19 +105,19 @@ func decryptEndpointHandler(marathonUrl string, configPublicKey *[32]byte, maste
 			return
 		}
 
-		appId := r.Form.Get("appid")
+		appID := r.Form.Get("appid")
 		appVersion := r.Form.Get("appversion")
-		taskId := r.Form.Get("taskid")
+		taskID := r.Form.Get("taskid")
 		serviceEnvelope := r.Form.Get("envelope")
-		log.Printf("Received request from %s (%s, %s) at %s with envelope %s", appId, taskId, appVersion, r.RemoteAddr, ellipsis(serviceEnvelope, 64))
+		log.Printf("Received request from %s (%s, %s) at %s with envelope %s", appID, taskID, appVersion, r.RemoteAddr, ellipsis(serviceEnvelope, 64))
 
-		if appId == "" || taskId == "" || appVersion == "" || serviceEnvelope == "" {
+		if appID == "" || taskID == "" || appVersion == "" || serviceEnvelope == "" {
 			errorResponse(w, r, errors.New("Expected parameters {appid, appversion, taskid, envelope}"), http.StatusBadRequest)
 			return
 		}
 
 		// Resolve app config version from Marathon
-		app, err := getMarathonApp(marathonUrl, appId, appVersion, taskId)
+		app, err := getMarathonApp(marathonURL, appID, appVersion, taskID)
 		if err != nil {
 			errorResponse(w, r, err, http.StatusInternalServerError)
 			return
@@ -138,7 +140,7 @@ func decryptEndpointHandler(marathonUrl string, configPublicKey *[32]byte, maste
 		// Authenticate with config key and decrypt secret
 		plaintext, err := decryptEnvelope(configPublicKey, masterKey, request.RequestedSecret)
 		if err != nil {
-			errorResponse(w, r, errors.New(fmt.Sprintf("Failed to decrypt plaintext secret, incorrect config or master key? (%s)", err)), http.StatusBadRequest)
+			errorResponse(w, r, fmt.Errorf("Failed to decrypt plaintext secret, incorrect config or master key? (%s)", err), http.StatusBadRequest)
 			return
 		}
 
@@ -152,8 +154,8 @@ func decryptEndpointHandler(marathonUrl string, configPublicKey *[32]byte, maste
 	}
 }
 
-func daemonCommand(listenAddress string, marathonUrl string, configPublicKey *[32]byte, masterKey *[32]byte) {
-	http.HandleFunc("/v1/decrypt", decryptEndpointHandler(marathonUrl, configPublicKey, masterKey))
+func daemonCommand(listenAddress string, marathonURL string, configPublicKey *[32]byte, masterKey *[32]byte) {
+	http.HandleFunc("/v1/decrypt", decryptEndpointHandler(marathonURL, configPublicKey, masterKey))
 	log.Printf("Daemon listening on %s", listenAddress)
 	log.Fatal(http.ListenAndServe(listenAddress, nil))
 }

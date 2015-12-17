@@ -17,6 +17,7 @@ build:
 
 test:
 	go test -bench=. -v -coverprofile=coverage.txt -covermode=atomic
+	golint
 
 clean:
 	rm -f ./secretary
