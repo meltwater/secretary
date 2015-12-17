@@ -1,0 +1,10 @@
+package: github.com/meltwater/secretary
+import:
+- package: github.com/go-errors/errors
+- package: github.com/spf13/cobra
+- package: github.com/stretchr/testify
+  subpackages:
+  - /assert
+- package: golang.org/x/crypto
+  subpackages:
+  - /nacl/box
