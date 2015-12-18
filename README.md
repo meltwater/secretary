@@ -222,12 +222,16 @@ eval $(secretary decrypt -e --service-key=/service/keys/service-private-key.pem)
 # .. or alternatively decrypt environment variables for setups without a service-private-key
 eval $(secretary decrypt -e)
 
-# Start the main application (a Java service in this example)
-function launch {
-  exec su --preserve-environment unprivileged-service-user -c '$0 "$@"' -- "$@"
+# Usage: launch username command [arguments]...
+launch() {
+  svcuser="$1"
+  svcexec="$2"
+  shift 2
+  exec su -p "$svcuser" -s "$svcexec" -- "$@"
 }
 
-launch java $JAVA_OPTS -jar /service/lib/standalone.jar $@
+# Start the main application (a Java service in this example)
+launch serviceuser /usr/bin/java $JAVA_OPTS -jar "/service/lib/standalone.jar" "$@"
 ```
 
 The complete decryption sequence could be described as
