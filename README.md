@@ -211,27 +211,26 @@ environment variables, before starting the actual service.
 ENV SECRETARY_VERSION x.y.z
 RUN curl -fsSLo /usr/bin/secretary "https://github.com/meltwater/secretary/releases/download/${SECRETARY_VERSION}/secretary-`uname -s`-`uname -m`" && \
     chmod +x /usr/bin/secretary
-
 ```
 
 Container startup examples
 ```
-# Decrypt environment variables
-eval $(secretary decrypt -e --service-key=/service/keys/service-private-key.pem)
+#!/bin/sh
 
-# .. or alternatively decrypt environment variables for setups without a service-private-key
-eval $(secretary decrypt -e)
+# Decrypt secrets
+if [ "$SECRETARY_URL" != "" ]; then
+  if [ "$SERVICE_PUBLIC_KEY" != "" ]; then
+    SECRETS=$(secretary decrypt -e --service-key=/service/keys/service-private-key.pem)
+  else
+    SECRETS=$(secretary decrypt -e)
+  fi
 
-# Usage: launch username command [arguments]...
-launch() {
-  svcuser="$1"
-  svcexec="$2"
-  shift 2
-  exec su -p "$svcuser" -s "$svcexec" -- "$@"
-}
+  eval "$SECRETS"
+  unset SECRETS
+fi
 
-# Start the main application (a Java service in this example)
-launch serviceuser /usr/bin/java $JAVA_OPTS -jar "/service/lib/standalone.jar" "$@"
+# Start the service
+...
 ```
 
 The complete decryption sequence could be described as
