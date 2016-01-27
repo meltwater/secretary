@@ -27,6 +27,9 @@ func TestRemoteCrypto(t *testing.T) {
 	appsResponseNoServiceKey, err := ioutil.ReadFile("./resources/test/marathon-apps-nosvckey.json")
 	assert.Nil(t, err)
 
+	appsResponseEncryptedSubString, err := ioutil.ReadFile("./resources/test/marathon-apps-encsubstr.json")
+	assert.Nil(t, err)
+
 	versionsResponse, err := ioutil.ReadFile("./resources/test/marathon-versions-response.json")
 	assert.Nil(t, err)
 
@@ -34,6 +37,9 @@ func TestRemoteCrypto(t *testing.T) {
 	assert.Nil(t, err)
 
 	versionsResponseNoServiceKey, err := ioutil.ReadFile("./resources/test/marathon-versions-nosvckey.json")
+	assert.Nil(t, err)
+
+	versionsResponseEncryptedSubString, err := ioutil.ReadFile("./resources/test/marathon-versions-encsubstr.json")
 	assert.Nil(t, err)
 
 	// Start in-test HTTP server that emulates Marathon
@@ -44,12 +50,16 @@ func TestRemoteCrypto(t *testing.T) {
 			fmt.Fprintln(w, string(appsResponse))
 		case r.URL.Path == "/v2/apps/demo/webapp2" && r.URL.RawQuery == "embed=apps.tasks":
 			fmt.Fprintln(w, string(appsResponseNoServiceKey))
+		case r.URL.Path == "/v2/apps/demo/webapp3" && r.URL.RawQuery == "embed=apps.tasks":
+			fmt.Fprintln(w, string(appsResponseEncryptedSubString))
 		case r.URL.Path == "/v2/apps/demo/webapp/versions/2015-12-04T12:25:08.426Z":
 			fmt.Fprintln(w, string(versionsResponse))
 		case r.URL.Path == "/v2/apps/demo/webapp/versions/2015-11-04T12:25:08.426Z":
 			fmt.Fprintln(w, string(versionsResponseBadServiceKey))
 		case r.URL.Path == "/v2/apps/demo/webapp2/versions/2015-12-04T12:25:08.426Z":
 			fmt.Fprintln(w, string(versionsResponseNoServiceKey))
+		case r.URL.Path == "/v2/apps/demo/webapp3/versions/2015-12-04T12:25:08.426Z":
+			fmt.Fprintln(w, string(versionsResponseEncryptedSubString))
 		default:
 			http.Error(w, fmt.Sprintf("Bad URL %s", r.URL.Path), http.StatusNotFound)
 		}
@@ -89,6 +99,20 @@ func TestRemoteCrypto(t *testing.T) {
 			pemRead("./resources/test/keys/myservice-private-key.pem"))
 
 		plaintext, err := crypto.Decrypt(encryptedSecret)
+		assert.Nil(t, err)
+		assert.Equal(t, "secret", string(plaintext))
+	}
+
+	// Test decryption of a secret that is in a substring in the app config
+	{
+		crypto := newRemoteCrypto(daemon.URL,
+			"/demo/webapp3", appVersion, taskID,
+			pemRead("./resources/test/keys/master-public-key.pem"),
+			deployPrivateKey,
+			pemRead("./resources/test/keys/myservice-private-key.pem"))
+
+		plaintext, err := crypto.Decrypt(encryptedSecret)
+		fmt.Println(err)
 		assert.Nil(t, err)
 		assert.Equal(t, "secret", string(plaintext))
 	}
