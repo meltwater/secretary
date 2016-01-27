@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 )
 
 // DaemonRequest TODO
@@ -59,7 +60,7 @@ func decryptRequest(app *MarathonApp, masterKey *[32]byte, serviceEnvelope strin
 func verifyAuthorization(app *MarathonApp, request *DaemonRequest) (bool, error) {
 	// Verify that encrypted string is present in app config
 	for _, value := range app.Env {
-		if stripWhitespace(value) == request.RequestedSecret {
+		if strings.Contains(stripWhitespace(value), request.RequestedSecret) {
 			return true, nil
 		}
 	}
