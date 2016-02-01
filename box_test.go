@@ -52,6 +52,10 @@ func TestExtractEnvelopes(t *testing.T) {
 	assert.Equal(t, 2, len(envelopes))
 	assert.Equal(t, []string{"ENC[NACL,uSr123+/=]", "ENC[NACL,pWd123+/=]"}, envelopes)
 
+	envelopes = extractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/ENC[NACL,def123+/=]")
+	assert.Equal(t, 3, len(envelopes))
+	assert.Equal(t, []string{"ENC[NACL,uSr123+/=]", "ENC[NACL,pWd123+/=]", "ENC[NACL,def123+/=]"}, envelopes)
+
 	envelopes = extractEnvelopes("amqp://ENC[NACL,]:ENC[NACL,pWd123+/=]@rabbit:5672/")
 	assert.Equal(t, 1, len(envelopes))
 	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
@@ -69,12 +73,15 @@ func TestExtractEnvelopes(t *testing.T) {
 	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
 }
 
-func TestIsEnvelope(t *testing.T) {
-	assert.True(t, isEnvelope("ENC[NACL,]"))
-	assert.True(t, isEnvelope("ENC[NACL,abc]"))
-	assert.False(t, isEnvelope("ENC[NACL,"))
-	assert.False(t, isEnvelope("NC[NACL,]"))
-	assert.False(t, isEnvelope("ENC[NACL,abc"))
+func TestExtractEnvelopeType(t *testing.T) {
+	assert.Equal(t, "", extractEnvelopeType("ENC[NACL,]"))
+	assert.Equal(t, "NACL", extractEnvelopeType("ENC[NACL,abc]"))
+	assert.Equal(t, "", extractEnvelopeType("ENC[KMS,]"))
+	assert.Equal(t, "KMS", extractEnvelopeType("ENC[KMS,abc]"))
+	assert.Equal(t, "", extractEnvelopeType("ENC[NACL,"))
+	assert.Equal(t, "", extractEnvelopeType("NC[NACL,]"))
+	assert.Equal(t, "", extractEnvelopeType("ENC[NACL,abc"))
+	assert.Equal(t, "", extractEnvelopeType("ENC[ACL,abc"))
 }
 
 func TestEncodeDecode(t *testing.T) {

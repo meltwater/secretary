@@ -4,7 +4,12 @@ import:
 - package: github.com/spf13/cobra
 - package: github.com/stretchr/testify
   subpackages:
-  - /assert
+  - assert
 - package: golang.org/x/crypto
   subpackages:
-  - /nacl/box
+  - nacl/box
+  - nacl/secretbox
+- package: github.com/aws/aws-sdk-go
+  subpackages:
+  - aws/session
+  - service/kms

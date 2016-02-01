@@ -34,20 +34,29 @@ func main() {
 
 	// Encryption command
 	{
-		var publicKeyFile, privateKeyFile string
+		var publicKeyFile, privateKeyFile, awsKmsID string
 		var wrapLines bool
 		cmdEncrypt := &cobra.Command{
 			Use:   "encrypt",
 			Short: "Encrypt data",
 			Run: func(cmd *cobra.Command, args []string) {
-				publicKey := requireKey("config public", publicKeyFile, "PUBLIC_KEY", "./keys/master-public-key.pem")
-				privateKey := requireKey("deploy private", privateKeyFile, "PRIVATE_KEY", "./keys/config-private-key.pem")
-				encryptCommand(os.Stdin, os.Stdout, publicKey, privateKey, wrapLines)
+				var crypto EncryptionStrategy
+
+				if len(awsKmsID) > 0 {
+					crypto = newKmsEncryptionStrategy(newKmsClient(), awsKmsID)
+				} else {
+					publicKey := requireKey("config public", publicKeyFile, "PUBLIC_KEY", "./keys/master-public-key.pem")
+					privateKey := requireKey("deploy private", privateKeyFile, "PRIVATE_KEY", "./keys/config-private-key.pem")
+					crypto = newKeyEncryptionStrategy(publicKey, privateKey)
+				}
+
+				encryptCommand(os.Stdin, os.Stdout, crypto, wrapLines)
 			},
 		}
 
 		cmdEncrypt.Flags().StringVarP(&publicKeyFile, "public-key", "", "", "Public key")
 		cmdEncrypt.Flags().StringVarP(&privateKeyFile, "private-key", "", "", "Private key")
+		cmdEncrypt.Flags().StringVarP(&awsKmsID, "kms-key-id", "", os.Getenv("KMS_KEY_ID"), "Amazon AWS KMS key id")
 		cmdEncrypt.Flags().BoolVarP(&wrapLines, "wrap", "w", false, "Wrap long lines")
 		rootCmd.AddCommand(cmdEncrypt)
 	}
@@ -61,18 +70,27 @@ func main() {
 			Use:   "decrypt",
 			Short: "Decrypt data",
 			Run: func(cmd *cobra.Command, args []string) {
-				var crypto Crypto
-				deployKey := requireKey("deploy private", deployKeyFile, "DEPLOY_PRIVATE_KEY", "./keys/master-private-key.pem")
+				var crypto DecryptionStrategy
 
 				if len(secretaryURL) > 0 {
+					deployKey := requireKey("deploy private", deployKeyFile, "DEPLOY_PRIVATE_KEY", "./keys/master-private-key.pem")
 					masterKey := requireKey("master public", masterKeyFile, "MASTER_PUBLIC_KEY", "./keys/master-public-key.pem")
 					serviceKey := findKey(serviceKeyFile, "SERVICE_PRIVATE_KEY")
-					crypto = newRemoteCrypto(
+					crypto = newDaemonDecryptionStrategy(
 						secretaryURL, appID, appVersion, taskID,
 						masterKey, deployKey, serviceKey)
 				} else {
-					configKey := requireKey("config public", configKeyFile, "CONFIG_PUBLIC_KEY", "./keys/config-public-key.pem")
-					crypto = newKeyCrypto(configKey, deployKey)
+					// Send ENC[KMS,..] and ENC[NACL,...] to separate decryptors
+					composite := newCompositeDecryptionStrategy()
+					composite.Add("KMS", newKmsDecryptionStrategy(newKmsClient()))
+
+					deployKey := findKey("deploy private", deployKeyFile, "DEPLOY_PRIVATE_KEY", "./keys/master-private-key.pem")
+					configKey := findKey("config public", configKeyFile, "CONFIG_PUBLIC_KEY", "./keys/config-public-key.pem")
+					if deployKey != nil && configKey != nil {
+						composite.Add("NACL", newKeyDecryptionStrategy(configKey, deployKey))
+					}
+
+					crypto = composite
 				}
 
 				if decryptEnv {
@@ -101,24 +119,33 @@ func main() {
 
 	// Daemon command
 	{
-		var marathonURL, configPublicKeyFile, masterPrivateKeyFile, daemonIP string
+		var marathonURL, configKeyFile, masterKeyFile, daemonIP string
 		var daemonPort int
 
 		cmdDaemon := &cobra.Command{
 			Use:   "daemon",
 			Short: "Start the REST service that decrypts secrets",
 			Run: func(cmd *cobra.Command, args []string) {
+				// Send ENC[KMS,..] and ENC[NACL,...] to separate decryptors
+				composite := newCompositeDecryptionStrategy()
+				composite.Add("KMS", newKmsDecryptionStrategy(newKmsClient()))
+
+				// NaCL support is optional if configKey isn't given. masterKey is needed to authenticate calling containers
+				configKey := findKey("config public", configKeyFile, "CONFIG_PUBLIC_KEY", "./keys/config-public-key.pem")
+				masterKey := requireKey("master private", masterKeyFile, "MASTER_PRIVATE_KEY", "./keys/master-private-key.pem")
+				if configKey != nil && masterKey != nil {
+					composite.Add("NACL", newKeyDecryptionStrategy(configKey, masterKey))
+				}
+
 				listenAddress := fmt.Sprintf("%s:%d", daemonIP, daemonPort)
-				configPublicKey := pemRead(configPublicKeyFile)
-				masterKey := pemRead(masterPrivateKeyFile)
-				daemonCommand(listenAddress, marathonURL, configPublicKey, masterKey)
+				daemonCommand(listenAddress, marathonURL, masterKey, composite)
 			},
 		}
 
 		cmdDaemon.Flags().StringVarP(&marathonURL, "marathon-url", "",
 			defaults(os.Getenv("MARATHON_URL"), "http://localhost:8080"), "URL of Marathon")
-		cmdDaemon.Flags().StringVarP(&configPublicKeyFile, "config-public-key", "", "./keys/config-public-key.pem", "Config public key file")
-		cmdDaemon.Flags().StringVarP(&masterPrivateKeyFile, "master-private-key", "", "./keys/master-private-key.pem", "Master private key file")
+		cmdDaemon.Flags().StringVarP(&configKeyFile, "config-key", "", "", "Config public key file")
+		cmdDaemon.Flags().StringVarP(&masterKeyFile, "master-key", "", "", "Master private key file")
 
 		cmdDaemon.Flags().StringVarP(&daemonIP, "ip", "i", "0.0.0.0", "Interface to bind to")
 		cmdDaemon.Flags().IntVarP(&daemonPort, "port", "p", 5070, "Port to listen on")

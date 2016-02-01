@@ -16,10 +16,11 @@ func TestEncryptDecryptCommand(t *testing.T) {
 	configPrivateKey := pemRead("./resources/test/keys/config-private-key.pem")
 	masterPublicKey := pemRead("./resources/test/keys/master-public-key.pem")
 	masterPrivateKey := pemRead("./resources/test/keys/master-private-key.pem")
+	encryption := newKeyEncryptionStrategy(masterPublicKey, configPrivateKey)
 
-	encryptCommand(input, &encrypted, masterPublicKey, configPrivateKey, false)
+	encryptCommand(input, &encrypted, encryption, false)
 
-	crypto := newKeyCrypto(configPublicKey, masterPrivateKey)
+	crypto := newKeyDecryptionStrategy(configPublicKey, masterPrivateKey)
 	decryptStream(&encrypted, &output, crypto)
 
 	assert.Equal(t, "secret", output.String())
@@ -34,12 +35,13 @@ func TestEncryptDecryptCommandSubstrings(t *testing.T) {
 	configPrivateKey := pemRead("./resources/test/keys/config-private-key.pem")
 	masterPublicKey := pemRead("./resources/test/keys/master-public-key.pem")
 	masterPrivateKey := pemRead("./resources/test/keys/master-private-key.pem")
+	encryption := newKeyEncryptionStrategy(masterPublicKey, configPrivateKey)
 
-	encryptCommand(input, &encrypted, masterPublicKey, configPrivateKey, false)
+	encryptCommand(input, &encrypted, encryption, false)
 	encrypted.Write([]byte("somepadding"))
-	encryptCommand(input2, &encrypted, masterPublicKey, configPrivateKey, false)
+	encryptCommand(input2, &encrypted, encryption, false)
 
-	crypto := newKeyCrypto(configPublicKey, masterPrivateKey)
+	crypto := newKeyDecryptionStrategy(configPublicKey, masterPrivateKey)
 	decryptStream(&encrypted, &output, crypto)
 
 	assert.Equal(t, "secretsomepaddingsecret2", output.String())
@@ -61,7 +63,7 @@ func TestDecryptEnvironmentCommand(t *testing.T) {
 
 	input := []string{"a=b", fmt.Sprintf("b=%s", encrypted), "c=d", fmt.Sprintf("e=%s", encrypted2)}
 
-	crypto := newKeyCrypto(configPublicKey, masterPrivateKey)
+	crypto := newKeyDecryptionStrategy(configPublicKey, masterPrivateKey)
 	decryptEnvironment(input, &output, crypto)
 
 	assert.Equal(t, "export b='secret'\nexport e='secret2'\n", output.String())
@@ -83,7 +85,7 @@ func TestDecryptEnvironmentCommandSubstrings(t *testing.T) {
 
 	input := []string{"a=b", fmt.Sprintf("b=blabla%sblabla%s", encrypted, encrypted2), "c=d"}
 
-	crypto := newKeyCrypto(configPublicKey, masterPrivateKey)
+	crypto := newKeyDecryptionStrategy(configPublicKey, masterPrivateKey)
 	decryptEnvironment(input, &output, crypto)
 
 	assert.Equal(t, "export b='blablasecretblablasecret2'\n", output.String())
@@ -105,7 +107,7 @@ func TestDecryptEnvironmentCommandSubstringsSpaces(t *testing.T) {
 
 	input := []string{"a=b", fmt.Sprintf("b=blabla %sb la bla %s", encrypted, encrypted2), "c=d"}
 
-	crypto := newKeyCrypto(configPublicKey, masterPrivateKey)
+	crypto := newKeyDecryptionStrategy(configPublicKey, masterPrivateKey)
 	decryptEnvironment(input, &output, crypto)
 
 	assert.Equal(t, "export b='blabla secretb la bla secret2'\n", output.String())

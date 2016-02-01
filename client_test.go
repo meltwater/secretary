@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestKeyCrypto(t *testing.T) {
-	crypto := newKeyCrypto(
+func TestKeyDecryptionStrategy(t *testing.T) {
+	crypto := newKeyDecryptionStrategy(
 		pemRead("./resources/test/keys/config-public-key.pem"),
 		pemRead("./resources/test/keys/master-private-key.pem"))
 
@@ -20,7 +20,31 @@ func TestKeyCrypto(t *testing.T) {
 	assert.Equal(t, "secret", string(plaintext))
 }
 
-func TestRemoteCrypto(t *testing.T) {
+func TestKeyEncryptionStrategy(t *testing.T) {
+	encryption := newKeyEncryptionStrategy(
+		pemRead("./resources/test/keys/master-public-key.pem"),
+		pemRead("./resources/test/keys/config-private-key.pem"))
+
+	decryption := newKeyDecryptionStrategy(
+		pemRead("./resources/test/keys/config-public-key.pem"),
+		pemRead("./resources/test/keys/master-private-key.pem"))
+
+	envelope, err := encryption.Encrypt([]byte("secret"))
+	assert.Nil(t, err)
+
+	plaintext, err := decryption.Decrypt(envelope)
+	assert.Nil(t, err)
+	assert.Equal(t, "secret", string(plaintext))
+}
+
+func newTestDecryptionStrategy(configKey string, masterKey string) DecryptionStrategy {
+	composite := newCompositeDecryptionStrategy()
+	composite.Add("KMS", newKmsDecryptionStrategy(newMockKmsClient()))
+	composite.Add("NACL", newKeyDecryptionStrategy(pemRead(configKey), pemRead(masterKey)))
+	return composite
+}
+
+func TestDaemonDecryptionStrategy(t *testing.T) {
 	appsResponse, err := ioutil.ReadFile("./resources/test/marathon-apps-response.json")
 	assert.Nil(t, err)
 
@@ -68,8 +92,10 @@ func TestRemoteCrypto(t *testing.T) {
 
 	// Start secretary daemon
 	handler := decryptEndpointHandler(marathon.URL,
-		pemRead("./resources/test/keys/config-public-key.pem"),
-		pemRead("./resources/test/keys/master-private-key.pem"))
+		pemRead("./resources/test/keys/master-private-key.pem"),
+		newTestDecryptionStrategy(
+			"./resources/test/keys/config-public-key.pem",
+			"./resources/test/keys/master-private-key.pem"))
 
 	daemon := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -89,10 +115,11 @@ func TestRemoteCrypto(t *testing.T) {
 	appID, appVersion, taskID := "/demo/webapp", "2015-12-04T12:25:08.426Z", "demo_webapp.0f810e10-9a82-11e5-94c7-6a515f434e2d"
 	badAppVersion, badTaskID := "2015-11-04T12:25:08.426Z", "demo_webapp.0f844265-9a82-11e5-94c7-6a515f434e2d"
 	encryptedSecret := "ENC[NACL,jpDAHM6WZe/1C93FLHd2M916U9AQwjT3VdvzQ7JHTHc57dLXsGE+oI8wDE2Fiw==]"
+	kmsSecret := "ENC[KMS,RP+BAwEBCmttc1BheWxvYWQB/4IAAQMBEEVuY3J5cHRlZERhdGFLZXkBCgABBU5vbmNlAf+EAAEHTWVzc2FnZQEKAAAAGf+DAQEBCVsyNF11aW50OAH/hAABBgEwAABw/4IBLFExUHVXdEIxRTdGMXNMcHZmQkdqTCtadUgrZlNDT3ZNRHFUeVJRRTRHVGc9ARgr/502fv/vQP+S/5H/k//gOf/gWDNh/53/3in/uf/L/5r/mTxbARYoewY+qb+skiPKwGUnT/2GADtui80vAA==]"
 
 	// Test decryption with both deploy and service keys
 	{
-		crypto := newRemoteCrypto(daemon.URL,
+		crypto := newDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
@@ -101,11 +128,15 @@ func TestRemoteCrypto(t *testing.T) {
 		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.Nil(t, err)
 		assert.Equal(t, "secret", string(plaintext))
+
+		plaintext, err = crypto.Decrypt(kmsSecret)
+		assert.Nil(t, err)
+		assert.Equal(t, "secret", string(plaintext))
 	}
 
 	// Test decryption of a secret that is in a substring in the app config
 	{
-		crypto := newRemoteCrypto(daemon.URL,
+		crypto := newDaemonDecryptionStrategy(daemon.URL,
 			"/demo/webapp3", appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
@@ -121,7 +152,7 @@ func TestRemoteCrypto(t *testing.T) {
 	{
 		encryptedKey := "ENC[NACL,egFSuFDkZxsmv9w7bWyZyxCBQQeykctG2H6UTiK7EHRdQI3E3NsZBP84Gqy8c5kh8BYErki6F0eqKAxd3u/QcOuMD17YgqTGiE/PMlO75yCuBzCnZNW7Y4b5Ww03v6uo1Fr/ew==]"
 
-		crypto := newRemoteCrypto(daemon.URL,
+		crypto := newDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
@@ -134,7 +165,7 @@ func TestRemoteCrypto(t *testing.T) {
 
 	// Test without a service key
 	{
-		crypto := newRemoteCrypto(daemon.URL,
+		crypto := newDaemonDecryptionStrategy(daemon.URL,
 			"/demo/webapp2", appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey, nil)
@@ -146,7 +177,7 @@ func TestRemoteCrypto(t *testing.T) {
 
 	// Test with a secret that's correct but not part of config
 	{
-		crypto := newRemoteCrypto(daemon.URL,
+		crypto := newDaemonDecryptionStrategy(daemon.URL,
 			"/demo/webapp2", appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey, nil)
@@ -159,7 +190,7 @@ func TestRemoteCrypto(t *testing.T) {
 
 	// Test decryption with bad deploy key
 	{
-		crypto := newRemoteCrypto(daemon.URL,
+		crypto := newDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			pemRead("./resources/test/keys/bad-private-key.pem"),
@@ -173,7 +204,7 @@ func TestRemoteCrypto(t *testing.T) {
 
 	// Test decryption with bad service key
 	{
-		crypto := newRemoteCrypto(daemon.URL,
+		crypto := newDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
@@ -187,7 +218,7 @@ func TestRemoteCrypto(t *testing.T) {
 
 	// Test with a bad master key
 	{
-		crypto := newRemoteCrypto(daemon.URL,
+		crypto := newDaemonDecryptionStrategy(daemon.URL,
 			"/demo/webapp", appVersion, taskID,
 			pemRead("./resources/test/keys/bad-public-key.pem"),
 			deployPrivateKey, nil)
@@ -200,7 +231,7 @@ func TestRemoteCrypto(t *testing.T) {
 
 	// Test with a bad service key
 	{
-		crypto := newRemoteCrypto(daemon.URL,
+		crypto := newDaemonDecryptionStrategy(daemon.URL,
 			appID, badAppVersion, badTaskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
@@ -214,7 +245,7 @@ func TestRemoteCrypto(t *testing.T) {
 
 	// Test with a appVersion and taskId mismatch
 	{
-		crypto := newRemoteCrypto(daemon.URL,
+		crypto := newDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, badTaskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
@@ -228,11 +259,13 @@ func TestRemoteCrypto(t *testing.T) {
 
 	// Test with a bad config public key
 	handler = decryptEndpointHandler(marathon.URL,
-		pemRead("./resources/test/keys/bad-public-key.pem"),
-		pemRead("./resources/test/keys/master-private-key.pem"))
+		pemRead("./resources/test/keys/master-private-key.pem"),
+		newTestDecryptionStrategy(
+			"./resources/test/keys/bad-public-key.pem",
+			"./resources/test/keys/master-private-key.pem"))
 
 	{
-		crypto := newRemoteCrypto(daemon.URL,
+		crypto := newDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
@@ -246,10 +279,13 @@ func TestRemoteCrypto(t *testing.T) {
 
 	// Test with a bad master private key
 	handler = decryptEndpointHandler(marathon.URL,
-		pemRead("./resources/test/keys/config-public-key.pem"),
-		pemRead("./resources/test/keys/bad-private-key.pem"))
+		pemRead("./resources/test/keys/bad-private-key.pem"),
+		newTestDecryptionStrategy(
+			"./resources/test/keys/config-public-key.pem",
+			"./resources/test/keys/master-private-key.pem"))
+
 	{
-		crypto := newRemoteCrypto(daemon.URL,
+		crypto := newDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, taskID,
 			pemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
@@ -259,5 +295,25 @@ func TestRemoteCrypto(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Nil(t, plaintext)
 		assert.Equal(t, "Failed to decrypt using daemon (HTTP 400 Error: Failed to authenticate/decrypt request using deploy and master key (incorrect master key or hacking attempt? (Failed to decrypt (incorrect keys?))))", err.Error())
+	}
+
+	// Test with a bad master private key
+	handler = decryptEndpointHandler(marathon.URL,
+		pemRead("./resources/test/keys/master-private-key.pem"),
+		newTestDecryptionStrategy(
+			"./resources/test/keys/config-public-key.pem",
+			"./resources/test/keys/bad-private-key.pem"))
+
+	{
+		crypto := newDaemonDecryptionStrategy(daemon.URL,
+			appID, appVersion, taskID,
+			pemRead("./resources/test/keys/master-public-key.pem"),
+			deployPrivateKey,
+			pemRead("./resources/test/keys/myservice-private-key.pem"))
+
+		plaintext, err := crypto.Decrypt(encryptedSecret)
+		assert.NotNil(t, err)
+		assert.Nil(t, plaintext)
+		assert.Equal(t, "Failed to decrypt using daemon (HTTP 400 Error: Failed to decrypt plaintext secret, incorrect config or master key? (Failed to decrypt (incorrect keys?)))", err.Error())
 	}
 }

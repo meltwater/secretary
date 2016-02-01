@@ -93,7 +93,7 @@ func encryptResponse(app *MarathonApp, masterKey *[32]byte, plaintext []byte) ([
 	return []byte(encrypted), nil
 }
 
-func decryptEndpointHandler(marathonURL string, configPublicKey *[32]byte, masterKey *[32]byte) func(http.ResponseWriter, *http.Request) {
+func decryptEndpointHandler(marathonURL string, masterKey *[32]byte, strategy DecryptionStrategy) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			errorResponse(w, r, "Expected POST method", http.StatusMethodNotAllowed)
@@ -139,7 +139,7 @@ func decryptEndpointHandler(marathonURL string, configPublicKey *[32]byte, maste
 		}
 
 		// Authenticate with config key and decrypt secret
-		plaintext, err := decryptEnvelope(configPublicKey, masterKey, request.RequestedSecret)
+		plaintext, err := strategy.Decrypt(request.RequestedSecret)
 		if err != nil {
 			errorResponse(w, r, fmt.Errorf("Failed to decrypt plaintext secret, incorrect config or master key? (%s)", err), http.StatusBadRequest)
 			return
@@ -155,8 +155,8 @@ func decryptEndpointHandler(marathonURL string, configPublicKey *[32]byte, maste
 	}
 }
 
-func daemonCommand(listenAddress string, marathonURL string, configPublicKey *[32]byte, masterKey *[32]byte) {
-	http.HandleFunc("/v1/decrypt", decryptEndpointHandler(marathonURL, configPublicKey, masterKey))
+func daemonCommand(listenAddress string, marathonURL string, masterKey *[32]byte, strategy DecryptionStrategy) {
+	http.HandleFunc("/v1/decrypt", decryptEndpointHandler(marathonURL, masterKey, strategy))
 	log.Printf("Daemon listening on %s", listenAddress)
 	log.Fatal(http.ListenAndServe(listenAddress, nil))
 }
