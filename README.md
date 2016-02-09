@@ -319,6 +319,10 @@ load balancer in front of them to ensure high availability. The daemon defaults 
 bind to 5070/tcp. The `secretary daemon` is completely stateless and can be load balanced
 easily.
 
+The daemon has an HTTP health check endpoint at `/v1/status` that will respond with
+`HTTP 200 OK` if all is well. This can be useful to point a load balancers health check
+mechanism at.
+
 ### Systemd and CoreOS/Fleet
 Create a [Systemd unit](http://www.freedesktop.org/software/systemd/man/systemd.unit.html) file
 in **/etc/systemd/system/secretary.service** with contents like below. Using CoreOS and
