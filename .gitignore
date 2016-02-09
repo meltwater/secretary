@@ -3,3 +3,4 @@ target
 coverage.txt
 .vscode
 vendor/
+.aws

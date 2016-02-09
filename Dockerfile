@@ -3,5 +3,6 @@ FROM golang:onbuild
 WORKDIR /
 VOLUME /keys
 
-ENTRYPOINT ["app"]
+ADD launch.sh /
+ENTRYPOINT ["/launch.sh"]
 CMD ["daemon"]

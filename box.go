@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
-var envelopeRegexp = regexp.MustCompile("ENC\\[NACL,[a-zA-Z0-9+/=\\s]+\\]")
+var envelopeRegexp = regexp.MustCompile("ENC\\[(NACL|KMS),[a-zA-Z0-9+/=\\s]+\\]")
 
 // Converts a byte slice to the [32]byte expected by NaCL
 func asKey(data []byte) (*[32]byte, error) {
@@ -151,11 +151,16 @@ func genkey(publicKeyFile string, privateKeyFile string) {
 }
 
 func extractEnvelopes(payload string) []string {
-	return envelopeRegexp.FindAllString(payload, 2)
+	return envelopeRegexp.FindAllString(payload, -1)
 }
 
-func isEnvelope(envelope string) bool {
-	return strings.HasPrefix(envelope, "ENC[NACL,") && strings.HasSuffix(envelope, "]")
+func extractEnvelopeType(envelope string) string {
+	submatches := envelopeRegexp.FindStringSubmatch(envelope)
+	if submatches != nil {
+		return submatches[1]
+	}
+
+	return ""
 }
 
 func encryptEnvelopeNonce(publicKey *[32]byte, privateKey *[32]byte, plaintext []byte, nonce *[24]byte) (string, error) {
@@ -174,7 +179,7 @@ func encryptEnvelope(publicKey *[32]byte, privateKey *[32]byte, plaintext []byte
 }
 
 func decryptEnvelopeNonce(publicKey *[32]byte, privateKey *[32]byte, envelope string) ([]byte, *[24]byte, error) {
-	if !isEnvelope(envelope) {
+	if extractEnvelopeType(envelope) != "NACL" {
 		return nil, nil, errors.New("Expected ENC[NACL,...] structured string")
 	}
 

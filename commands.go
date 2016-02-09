@@ -11,11 +11,11 @@ import (
 const maxLineLength = 64
 
 // Encrypts data from stdin and writes to stdout
-func encryptCommand(input io.Reader, output io.Writer, publicKey *[32]byte, privateKey *[32]byte, wrapLines bool) {
+func encryptCommand(input io.Reader, output io.Writer, crypto EncryptionStrategy, wrapLines bool) {
 	plaintext, err := ioutil.ReadAll(input)
 	check(err, "Failed to read plaintext data from standard input")
 
-	envelope, err := encryptEnvelope(publicKey, privateKey, plaintext)
+	envelope, err := crypto.Encrypt(plaintext)
 	check(err)
 
 	if wrapLines {
@@ -29,7 +29,7 @@ func encryptCommand(input io.Reader, output io.Writer, publicKey *[32]byte, priv
 }
 
 // Decrypts data from stdin and writes to stdout
-func decryptStream(input io.Reader, output io.Writer, crypto Crypto) {
+func decryptStream(input io.Reader, output io.Writer, crypto DecryptionStrategy) {
 	payload, err := ioutil.ReadAll(input)
 	check(err, "Failed to read encrypted data from standard input")
 	result := string(payload)
@@ -48,7 +48,7 @@ func decryptStream(input io.Reader, output io.Writer, crypto Crypto) {
 }
 
 // Decrypts environment variables and writes them to stdout
-func decryptEnvironment(input []string, output io.Writer, crypto Crypto) {
+func decryptEnvironment(input []string, output io.Writer, crypto DecryptionStrategy) {
 	haserr := false
 
 	for _, item := range input {

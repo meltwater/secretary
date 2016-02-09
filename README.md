@@ -3,17 +3,24 @@
 [![Coverage Status](http://codecov.io/github/meltwater/secretary/coverage.svg?branch=master)](http://codecov.io/github/meltwater/secretary?branch=master)
 
 [Secretary](https://en.wikipedia.org/wiki/Secretary#Etymology) solves the problem of
-secrets distribution and authorization in highly dynamic container environments.
+secrets distribution and authorization in highly dynamic container and VM environments. 
+[NaCL](http://nacl.cr.yp.to/) and [AWS Key Management Service (KMS)](https://aws.amazon.com/kms/)
+are supported crypto backends and can be mixed freely. 
 
-Secretary uses [Marathon](https://mesosphere.github.io/marathon/) to determine which
-service can access what secrets, and how to authenticate that service. This allows for
-delegation of secrets management to non-admin users and keeps configuration, secrets
-and software versions together throughout the delivery pipeline.
+The `secretary` client performs either local or remote decryption using NaCL keys, AWS KMS or 
+by calling `secretary daemon` when deployed in a containers via Marathon. Encryption is done
+at configuration time through public NaCL keys or by calling KMS.
 
-Secretary is conceptually similar to [Puppet agent and server](https://docs.puppetlabs.com/puppet/4.2/reference/architecture.html#communications-and-security)
-certificates and [Hiera-Eyaml](https://puppetlabs.com/blog/encrypt-your-data-using-hiera-eyaml) but uses [NaCL](http://nacl.cr.yp.to/) public key
-cryptography instead of SSL certificates and PKCS#7 encryption. A key differences with Secretary is however that
-plaintext secrets are never stored to disk or otherwise made visible outside the container.
+In daemon mode Secretary uses [Marathon](https://mesosphere.github.io/marathon/) to 
+determine which container can access what secrets, and how to authenticate that container. 
+This allows delegation of secrets management to non-admin users and keeps configuration, 
+secrets and software versions together throughout the delivery pipeline.
+
+AWS EC2 instances use `secretary` locally to decrypt secrets embedded into the user-data 
+or VM image. AWS KMS, IAM Roles and CloudTrail provides access control and audit trails 
+on the instance level. In Mesos clusters it's usually not desirable to have slave nodes 
+access KMS directly, rather the `secretary daemon` can authenticate containers with NaCL
+signatures and delegate the actual decryption to KMS.
 
 ## System Components
 
@@ -196,6 +203,7 @@ An runtime config automatically expanded by Lighter might look like
         "DATABASE_USERNAME": "myservice",
         "DATABASE_PASSWORD": "ENC[NACL,SLXf+O9iG48uyojT0Zg30Q8/uRV8DizuDWMWtgL5PmTU54jxp5cTGrYeLpd86rA=]",
         "DATABASE_URL": "jdbc:mysql://hostname:3306/schema"
+        "BUCKET_TOKEN": "ENC[KMS,RP+BAwEBCmttc1BheWxvYWQB/4IAAQMBEEVuY3J5cHRlZERhdGFLZXkBCgABBU5vbmNlA==]"
     }
     ...
 }
@@ -216,6 +224,7 @@ RUN curl -fsSLo /usr/bin/secretary "https://github.com/meltwater/secretary/relea
 Container startup examples
 ```
 #!/bin/sh
+set -e
 
 # Decrypt secrets
 if [ "$SECRETARY_URL" != "" ]; then
@@ -230,7 +239,7 @@ if [ "$SECRETARY_URL" != "" ]; then
 fi
 
 # Start the service
-...
+exec ...
 ```
 
 The complete decryption sequence could be described as
@@ -290,8 +299,18 @@ set +o history
 # Encrypt for writing into deployment config files
 echo -n secret | ./secretary encrypt
 
+# Encrypt using Amazon AWS KMS
+# Note: You need AWS credentials setup in ~/.aws/credentials or envvars $AWS_ACCESS_KEY, $AWS_SECRET_ACCESS_KEY, $AWS_REGION
+echo -n secret | ./secretary encrypt --kms-key-id=12345678-1234-1234-1234-123456789012
+
 # Decrypt (requires access to master-private-key)
 echo <encrypted> | ./secretary decrypt
+
+# Decrypt and substitute encrypted environment variables
+eval $(./secretary decrypt -e)
+
+# Decrypt all encrypted substrings in file
+cat /path/to/secrets | ./secretary decrypt
 ```
 
 ## Secretary Daemon
@@ -359,4 +378,133 @@ docker::run_instance:
       - '/etc/secretary/master-keys:/keys'
     env:
       - 'MARATHON_URL=http://marathon-host:8080'
+```
+
+## Amazon AWS KMS
+Secretary can encrypt and decrypt secrets using [AWS Key Management Service](https://aws.amazon.com/kms/)
+which provides hardware security modules (HSMs) for key storage and access control, as well as audit logs
+of key usage.
+
+When interacting with KMS to encrypt or decrypt secrets you or the instance needs access to the AWS API
+and the specific KMS key. Key access is managed via the AWS IAM console and can be both on the KMS API level
+as well as fine grained permissions for each key.
+
+For workstation access to encrypt secrets you typically need AWS credentials setup in *~/.aws/credentials* or 
+environment variables *$AWS_ACCESS_KEY*, *$AWS_SECRET_ACCESS_KEY* and *$AWS_REGION* so that secretary can interact 
+with the KMS API.
+
+AWS EC2 instances should use IAM roles rather than access keys, to grant them access to the KMS API and the 
+specific KMS keys.
+
+### Secrets in user-data
+When using [CoreOS cloud-config](https://coreos.com/os/docs/latest/cloud-config.html) and passing secrets
+in the user-data section. 
+
+In the examples replace the SECRETARY_VERSION with a version from the [releases page](https://github.com/meltwater/secretary/releases).
+You also need to replace the `e59c5534e4e6fb3c2ad0d3c075d9e2fa664889b9` sha1sum with one that is calculated
+from the exact version you intend to use. This can be done like
+
+```
+curl -sSL https://github.com/meltwater/secretary/releases/download/${SECRETARY_VERSION}/secretary-Linux-x86_64 | sha1sum -
+```
+
+#### Embedded Secretary binary
+This CoreOS user-data example writes out /etc/environment.encrypted with encrypted secrets and forwards them 
+into a Docker container as encrypted environment variables. The Docker image embeds the secretary binary and 
+its startup script decrypts the environment using `eval $(secretary decrypt -e)`
+
+```
+#cloud-config
+---
+coreos:
+  units:
+  - name: myservice.service
+    command: start
+    content: |
+      [Unit]
+      After=docker.service decrypt.service
+      Requires=docker.service decrypt.service
+
+      [Service]
+      EnvironmentFile=/etc/environment.encrypted
+      Environment=IMAGE=myservice:latest NAME=myservice
+
+      # Allow docker pull to take some time
+      TimeoutStartSec=600
+
+      # Restart on failures
+      KillMode=none
+      Restart=always
+      RestartSec=15
+
+      # Start Docker container
+      ExecStartPre=-/usr/bin/docker kill ${NAME}
+      ExecStartPre=-/usr/bin/docker rm ${NAME}
+      ExecStartPre=-/bin/sh -c 'if ! docker images | tr -s " " : | grep "^${IMAGE}:"; then docker pull "${IMAGE}"; fi'      
+      ExecStart=/usr/bin/docker run --name ${NAME} \
+        -e "DATABASE_PASSWORD=${DATABASE_PASSWORD}" \
+        -e "API_KEY=${API_KEY}" \
+        ${IMAGE}
+
+write_files:
+  - path: "/etc/environment.encrypted"
+    permissions: "0600"
+    owner: "root"
+    content: |
+      DATABASE_PASSWORD=ENC[KMS,RP+BAwEBCmttc1BheWxvYWQB/4IAAQMBEEVuY3J5cHRlZERhdGFLZXkBCgABBU5vbmNlA==]
+      API_KEY=ENC[KMS,SLXf+O9iG48uyojT0Zg30Q8/uRV8DizuDWMWtgL5PmTU54jxp5cTGrYeLpd86rA==]
+```
+
+#### External Secretary binary
+This CoreOS user-data example writes out /etc/environment.encrypted with encrypted secrets. Then uses 
+secretary and KMS to decrypt them and forwards the secrets into a Docker container as unencrypted environment variables.
+
+```
+#cloud-config
+---
+coreos:
+  units:
+  - name: myservice.service
+    command: start
+    content: |
+      [Unit]
+      After=docker.service decrypt.service
+      Requires=docker.service decrypt.service
+
+      [Service]
+      EnvironmentFile=/etc/environment.encrypted
+      Environment=IMAGE=myservice:latest NAME=myservice SECRETARY_VERSION=x.y.z
+
+      # Allow docker pull to take some time
+      TimeoutStartSec=600
+
+      # Restart on failures
+      KillMode=none
+      Restart=always
+      RestartSec=15
+
+      # Download and verify signature of secretary binary
+      ExecStartPre=/bin/sh -c '\
+        if [ ! -f /usr/bin/secretary ]; then 
+          curl -sSLo /usr/bin/secretary https://github.com/meltwater/secretary/releases/download/${SECRETARY_VERSION}/secretary-Linux-x86_64 && \
+          chmod +x /usr/bin/secretary; 
+        fi'
+      ExecStartPre=/bin/sh -c 'echo e59c5534e4e6fb3c2ad0d3c075d9e2fa664889b9 /usr/bin/secretary | sha1sum -c -'
+
+      # Start Docker container
+      ExecStartPre=-/usr/bin/docker kill ${NAME}
+      ExecStartPre=-/usr/bin/docker rm ${NAME}
+      ExecStartPre=-/bin/sh -c 'if ! docker images | tr -s " " : | grep "^${IMAGE}:"; then docker pull "${IMAGE}"; fi'      
+      ExecStart=/bin/sh -c 'eval $(secretary decrypt -e) && docker run --name myservice \
+        -e "DATABASE_PASSWORD=${DATABASE_PASSWORD}" \
+        -e "API_KEY=${API_KEY}" \
+        myservice:latest'
+
+write_files:
+  - path: "/etc/environment.encrypted"
+    permissions: "0600"
+    owner: "root"
+    content: |
+      DATABASE_PASSWORD=ENC[KMS,RP+BAwEBCmttc1BheWxvYWQB/4IAAQMBEEVuY3J5cHRlZERhdGFLZXkBCgABBU5vbmNlA==]
+      API_KEY=ENC[KMS,SLXf+O9iG48uyojT0Zg30Q8/uRV8DizuDWMWtgL5PmTU54jxp5cTGrYeLpd86rA==]
 ```

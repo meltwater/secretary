@@ -6,41 +6,87 @@ import (
 	"net/url"
 )
 
-// Crypto is a Generic decryption mechanism
-type Crypto interface {
+// EncryptionStrategy is a generic encryption mechanism
+type EncryptionStrategy interface {
+	Encrypt([]byte) (string, error)
+}
+
+// DecryptionStrategy is a generic decryption mechanism
+type DecryptionStrategy interface {
 	Decrypt(envelope string) ([]byte, error)
 }
 
-// KeyCrypto decrypts using in-memory keys
-type KeyCrypto struct {
+// CompositeDecryptionStrategy multiplexes other decryption strategies {NACL, KMS}
+type CompositeDecryptionStrategy struct {
+	Strategies map[string]DecryptionStrategy
+}
+
+// Decrypt decrypts an envelope
+func (k *CompositeDecryptionStrategy) Decrypt(envelope string) ([]byte, error) {
+	// Get the type of encryption {NACL, KMS}
+	envelopeType := extractEnvelopeType(envelope)
+	strategy := k.Strategies[envelopeType]
+
+	if strategy != nil {
+		return strategy.Decrypt(envelope)
+	}
+
+	return nil, fmt.Errorf("Not configured for decrypting ENC[%s,..] values", envelopeType)
+}
+
+// Add a new decryption strategy
+func (k *CompositeDecryptionStrategy) Add(envelopeType string, strategy DecryptionStrategy) {
+	k.Strategies[envelopeType] = strategy
+}
+
+func newCompositeDecryptionStrategy() *CompositeDecryptionStrategy {
+	return &CompositeDecryptionStrategy{Strategies: make(map[string]DecryptionStrategy)}
+}
+
+// KeyEncryptionStrategy decrypts using in-memory keys
+type KeyEncryptionStrategy struct {
+	PublicKey, PrivateKey *[32]byte
+}
+
+// Encrypt encrypts a buffer and returns an envelope
+func (k *KeyEncryptionStrategy) Encrypt(plaintext []byte) (string, error) {
+	return encryptEnvelope(k.PublicKey, k.PrivateKey, plaintext)
+}
+
+func newKeyEncryptionStrategy(publicKey *[32]byte, privateKey *[32]byte) *KeyEncryptionStrategy {
+	return &KeyEncryptionStrategy{PublicKey: publicKey, PrivateKey: privateKey}
+}
+
+// KeyDecryptionStrategy decrypts using in-memory keys
+type KeyDecryptionStrategy struct {
 	PublicKey, PrivateKey *[32]byte
 }
 
 // Decrypt decrypts an envelope
-func (k *KeyCrypto) Decrypt(envelope string) ([]byte, error) {
+func (k *KeyDecryptionStrategy) Decrypt(envelope string) ([]byte, error) {
 	return decryptEnvelope(k.PublicKey, k.PrivateKey, envelope)
 }
 
-func newKeyCrypto(publicKey *[32]byte, privateKey *[32]byte) *KeyCrypto {
-	return &KeyCrypto{PublicKey: publicKey, PrivateKey: privateKey}
+func newKeyDecryptionStrategy(publicKey *[32]byte, privateKey *[32]byte) *KeyDecryptionStrategy {
+	return &KeyDecryptionStrategy{PublicKey: publicKey, PrivateKey: privateKey}
 }
 
-// RemoteCrypto decrypts using the secretary daemon
-type RemoteCrypto struct {
+// DaemonDecryptionStrategy decrypts using the secretary daemon
+type DaemonDecryptionStrategy struct {
 	DaemonURL, AppID, AppVersion, TaskID string
 	MasterKey, DeployKey, ServiceKey     *[32]byte
 }
 
-func newRemoteCrypto(
+func newDaemonDecryptionStrategy(
 	daemonURL string, appID string, appVersion string, taskID string,
-	masterKey *[32]byte, deployKey *[32]byte, serviceKey *[32]byte) *RemoteCrypto {
-	return &RemoteCrypto{
+	masterKey *[32]byte, deployKey *[32]byte, serviceKey *[32]byte) *DaemonDecryptionStrategy {
+	return &DaemonDecryptionStrategy{
 		DaemonURL: daemonURL, AppID: appID, AppVersion: appVersion, TaskID: taskID,
 		MasterKey: masterKey, DeployKey: deployKey, ServiceKey: serviceKey}
 }
 
 // Decrypt decrypts an envelope
-func (r *RemoteCrypto) Decrypt(envelope string) ([]byte, error) {
+func (r *DaemonDecryptionStrategy) Decrypt(envelope string) ([]byte, error) {
 	message := DaemonRequest{
 		AppID: r.AppID, AppVersion: r.AppVersion, TaskID: r.TaskID,
 		RequestedSecret: envelope,
