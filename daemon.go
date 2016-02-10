@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// DaemonRequest TODO
+// DaemonRequest is the request expected by the /v1/decrypt endpoint
 type DaemonRequest struct {
 	AppID, AppVersion, TaskID string
 
@@ -17,9 +17,14 @@ type DaemonRequest struct {
 	RequestedSecret string
 }
 
-// DaemonResponse TODO
+// DaemonResponse is the response returned by the /v1/decrypt endpoint
 type DaemonResponse struct {
 	PlaintextSecret string
+}
+
+// DaemonStatusResponse is the response returned by the /v1/status endpoint
+type DaemonStatusResponse struct {
+	Status string
 }
 
 func errorResponse(w http.ResponseWriter, r *http.Request, err interface{}, statusCode int) {
@@ -155,8 +160,22 @@ func decryptEndpointHandler(marathonURL string, masterKey *[32]byte, strategy De
 	}
 }
 
+func statusEndpointHandler() func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		message := DaemonStatusResponse{Status: "OK"}
+		encoded, err := json.Marshal(message)
+		if err != nil {
+			errorResponse(w, r, fmt.Errorf("Failed to serialize json response", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Write(encoded)
+	}
+}
+
 func daemonCommand(listenAddress string, marathonURL string, masterKey *[32]byte, strategy DecryptionStrategy) {
 	http.HandleFunc("/v1/decrypt", decryptEndpointHandler(marathonURL, masterKey, strategy))
+	http.HandleFunc("/v1/status", statusEndpointHandler())
 	log.Printf("Daemon listening on %s", listenAddress)
 	log.Fatal(http.ListenAndServe(listenAddress, nil))
 }

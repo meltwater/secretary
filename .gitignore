@@ -4,3 +4,4 @@ coverage.txt
 .vscode
 vendor/
 .aws
+keys/
