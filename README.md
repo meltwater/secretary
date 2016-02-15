@@ -429,6 +429,9 @@ coreos:
       After=docker.service decrypt.service
       Requires=docker.service decrypt.service
 
+      [Install]
+      WantedBy=multi-user.target
+
       [Service]
       EnvironmentFile=/etc/environment.encrypted
       Environment=IMAGE=myservice:latest NAME=myservice
@@ -474,6 +477,9 @@ coreos:
       [Unit]
       After=docker.service decrypt.service
       Requires=docker.service decrypt.service
+
+      [Install]
+      WantedBy=multi-user.target
 
       [Service]
       EnvironmentFile=/etc/environment.encrypted
