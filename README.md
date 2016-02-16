@@ -2,25 +2,10 @@
 [![Travis CI](https://img.shields.io/travis/meltwater/secretary/master.svg)](https://travis-ci.org/meltwater/secretary)
 [![Coverage Status](http://codecov.io/github/meltwater/secretary/coverage.svg?branch=master)](http://codecov.io/github/meltwater/secretary?branch=master)
 
-[Secretary](https://en.wikipedia.org/wiki/Secretary#Etymology) solves the problem of
+[Secretary](https://en.wikipedia.org/wiki/Secretary#Etymology) helps solve the problem of
 secrets distribution and authorization in highly dynamic container and VM environments. 
 [NaCL](http://nacl.cr.yp.to/) and [AWS Key Management Service (KMS)](https://aws.amazon.com/kms/)
 are supported crypto backends and can be mixed freely. 
-
-The `secretary` client performs either local or remote decryption using NaCL keys, AWS KMS or 
-by calling `secretary daemon` when deployed in a containers via Marathon. Encryption is done
-at configuration time through public NaCL keys or by calling KMS.
-
-In daemon mode Secretary uses [Marathon](https://mesosphere.github.io/marathon/) to 
-determine which container can access what secrets, and how to authenticate that container. 
-This allows delegation of secrets management to non-admin users and keeps configuration, 
-secrets and software versions together throughout the delivery pipeline.
-
-AWS EC2 instances use `secretary` locally to decrypt secrets embedded into the user-data 
-or VM image. AWS KMS, IAM Roles and CloudTrail provides access control and audit trails 
-on the instance level. In Mesos clusters it's usually not desirable to have slave nodes 
-access KMS directly, rather the `secretary daemon` can authenticate containers with NaCL
-signatures and delegate the actual decryption to KMS.
 
 ## System Components
 
@@ -28,9 +13,22 @@ signatures and delegate the actual decryption to KMS.
    *deploy-private-key* and the optional *service-private-key*.
 - `secretary daemon` running on master nodes behind a load balancer and with
    access to *master-private-key* and the Marathon REST API.
-- *config repo* containing environment specific config, public keys and encrypted secrets.
+- *config repo* containing configuration, public keys and encrypted secrets.
 
-## Encryption
+## Design
+In a standalone setup the `secretary` client performs decryption using either 
+local NaCL keys or by calling the AWS Key Management Service. 
+
+In Mesos clusters it may not be desirable to have all slave nodes hold master keys or access KMS
+directly. A container would instead call `secretary daemon` which authenticates its signature and
+performs the decryption in a central place. The `secretary daemon` queries [Marathon](https://mesosphere.github.io/marathon/) 
+to retrieve a containers public keys and determine what secrets it may access.
+
+Encryption is done at configuration time through public keys or by calling KMS. This 
+enables delegation of secrets management to non-admin users and help keep configuration, secrets 
+and software versions together throughout the delivery pipeline.
+
+### NaCL Crypto
 Secretary uses [NaCL](http://nacl.cr.yp.to/) boxes through the golang
 [crypto/nacl](https://godoc.org/golang.org/x/crypto/nacl/box) package. Boxes
 are encrypted and signed using modern and strong public key cryptography.
@@ -62,6 +60,15 @@ service instances.
   stored directly in the Docker image or in a VM image and mounted into
   the container.
 
+### Amazon AWS KMS
+Secretary can encrypt and decrypt secrets using [AWS Key Management Service](https://aws.amazon.com/kms/)
+which provides hardware security modules (HSMs) for key storage and access control, as well as audit logs
+of key usage. 
+
+KMS coupled with IAM roles and CloudTrail provides access control and audit trails at the 
+instance level. AWS EC2 instances could then use `secretary` to decrypt secrets embedded into 
+user-data or VM images.
+
 ### Compared to Centralized Systems?
 Benefits of using public key cryptography compared to centrally
 managed token-based systems like [Vault](https://github.com/hashicorp/vault) or
@@ -72,8 +79,8 @@ managed token-based systems like [Vault](https://github.com/hashicorp/vault) or
 
 - It's often desirable to tightly couple deployment of configuration and secrets
   with software deployments in a continuous delivery pipeline. *Configuration as code*
-  implies managing configuration and secrets in the same way and using the same pipeline
-  as software releases goes though.
+  implies managing configuration and secrets in the same way using the same pipeline
+  as software releases goes through.
 
   This helps avoid mismatches between what parameters and secrets a specific software
   version expects, and what's actually present in the central secret/config management
@@ -88,7 +95,12 @@ available to anyone with access to the *config repo*.
 Secretary mitigates this problem by storing encrypted secrets in the *config repo* and
 keeping them encrypted all the way into the runtime environment. Secrets are only ever 
 decrypted inside the container at startup and stored in environment variables visible
-only to the service.
+only to the service. 
+
+Secrets can only be accessed by a process that holds both the deploy and service private 
+keys. The deploy key is generated for each single deployment and is available only to 
+specific containers. While the service key is available on slave nodes or embedded into 
+a single application image.
 
 ### What is needed to get the secrets?
 
@@ -103,7 +115,6 @@ Or with access to the *config repo*:
 
 - Encrypted secret from *config repo*
 - Master private key from master nodes
-
 
 ## Getting Started
 The *master* and *config* key pairs are created once and for each environment using
@@ -304,7 +315,7 @@ echo -n secret | ./secretary encrypt
 echo -n secret | ./secretary encrypt --kms-key-id=12345678-1234-1234-1234-123456789012
 
 # Decrypt (requires access to master-private-key)
-echo <encrypted> | ./secretary decrypt
+echo -n <encrypted> | ./secretary decrypt
 
 # Decrypt and substitute encrypted environment variables
 eval $(./secretary decrypt -e)
@@ -316,18 +327,15 @@ cat /path/to/secrets | ./secretary decrypt
 ## Secretary Daemon
 Deploy several instances of the `secretary daemon` to trusted master nodes and create a
 load balancer in front of them to ensure high availability. The daemon defaults to
-bind to 5070/tcp. The `secretary daemon` is completely stateless and can be load balanced
-easily.
+bind to 5070/tcp. The `secretary daemon` is stateless and can be load balanced freely.
 
 The daemon has an HTTP health check endpoint at `/v1/status` that will respond with
-`HTTP 200 OK` if all is well. This can be useful to point a load balancers health check
+`HTTP 200 OK` if all is well. This could be used to point a load balancers health check
 mechanism at.
 
-### Systemd and CoreOS/Fleet
+### Systemd
 Create a [Systemd unit](http://www.freedesktop.org/software/systemd/man/systemd.unit.html) file
-in **/etc/systemd/system/secretary.service** with contents like below. Using CoreOS and
-[Fleet](https://coreos.com/docs/launching-containers/launching/fleet-unit-files/) then
-add the X-Fleet section to schedule the unit on master nodes.
+in **/etc/systemd/system/secretary.service** with contents like below.
 
 ```
 [Unit]
@@ -359,10 +367,6 @@ ExecStart=/usr/bin/docker run --name=${NAME} \
     $IMAGE
 
 ExecStop=/usr/bin/docker stop $NAME
-
-[X-Fleet]
-Global=true
-MachineMetadata=role=master
 ```
 
 ### Puppet Hiera
@@ -385,10 +389,6 @@ docker::run_instance:
 ```
 
 ## Amazon AWS KMS
-Secretary can encrypt and decrypt secrets using [AWS Key Management Service](https://aws.amazon.com/kms/)
-which provides hardware security modules (HSMs) for key storage and access control, as well as audit logs
-of key usage.
-
 When interacting with KMS to encrypt or decrypt secrets you or the instance needs access to the AWS API
 and the specific KMS key. Key access is managed via the AWS IAM console and can be both on the KMS API level
 as well as fine grained permissions for each key.
