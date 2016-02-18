@@ -238,16 +238,14 @@ Container startup examples
 set -e
 
 # Decrypt secrets
-if [ "$SECRETARY_URL" != "" ]; then
-  if [ "$SERVICE_PUBLIC_KEY" != "" ]; then
-    SECRETS=$(secretary decrypt -e --service-key=/service/keys/service-private-key.pem)
-  else
-    SECRETS=$(secretary decrypt -e)
-  fi
-
-  eval "$SECRETS"
-  unset SECRETS
+if [ "$SERVICE_PUBLIC_KEY" != "" ]; then
+  SECRETS=$(secretary decrypt -e --service-key=/service/keys/service-private-key.pem)
+else
+  SECRETS=$(secretary decrypt -e)
 fi
+
+eval "$SECRETS"
+unset SECRETS
 
 # Start the service
 exec ...
