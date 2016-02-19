@@ -239,9 +239,9 @@ set -e
 
 # Decrypt secrets
 if [ "$SERVICE_PUBLIC_KEY" != "" ]; then
-  SECRETS=$(secretary decrypt -e --service-key=/service/keys/service-private-key.pem)
+    SECRETS=$(secretary decrypt -e --service-key=/service/keys/service-private-key.pem)
 else
-  SECRETS=$(secretary decrypt -e)
+    SECRETS=$(secretary decrypt -e)
 fi
 
 eval "$SECRETS"
