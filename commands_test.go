@@ -61,12 +61,26 @@ func TestDecryptEnvironmentCommand(t *testing.T) {
 	encrypted2, err := encryptEnvelope(masterPublicKey, configPrivateKey, []byte("secret2"))
 	assert.Nil(t, err)
 
-	input := []string{"a=b", fmt.Sprintf("b=%s", encrypted), "c=d", fmt.Sprintf("e=%s", encrypted2)}
+	{
+		input := []string{"a=b", fmt.Sprintf("b=%s", encrypted), "c=d", fmt.Sprintf("e=%s", encrypted2), "e.f=d"}
 
-	crypto := newKeyDecryptionStrategy(configPublicKey, masterPrivateKey)
-	decryptEnvironment(input, &output, crypto)
+		crypto := newKeyDecryptionStrategy(configPublicKey, masterPrivateKey)
+		ok, err := decryptEnvironment(input, &output, crypto)
 
-	assert.Equal(t, "export b='secret'\nexport e='secret2'\n", output.String())
+		assert.True(t, ok)
+		assert.Nil(t, err)
+		assert.Equal(t, "export b='secret'\nexport e='secret2'\n", output.String())
+	}
+
+	{
+		input := []string{"a.b=b", fmt.Sprintf("b.c=%s", encrypted)}
+
+		crypto := newKeyDecryptionStrategy(configPublicKey, masterPrivateKey)
+		ok, err := decryptEnvironment(input, &output, crypto)
+
+		assert.False(t, ok)
+		assert.Equal(t, "The env var 'b.c' is not a valid shell script identifier. Only alphanumeric characters and underscores are supported, starting with an alphabetic or underscore character.", err.Error())
+	}
 }
 
 func TestDecryptEnvironmentCommandSubstrings(t *testing.T) {

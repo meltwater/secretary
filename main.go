@@ -94,7 +94,12 @@ func main() {
 				}
 
 				if decryptEnv {
-					decryptEnvironment(os.Environ(), os.Stdout, crypto)
+					// err is also printed on stderr, so no need to use it here
+					ok, _ := decryptEnvironment(os.Environ(), os.Stdout, crypto)
+
+					if !ok {
+						os.Exit(1)
+					}
 				} else {
 					decryptStream(os.Stdin, os.Stdout, crypto)
 				}

@@ -5,10 +5,13 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 )
 
 const maxLineLength = 64
+
+var shellIdentifierRegexp = regexp.MustCompile("^[A-Za-z_][A-Za-z0-9_]*$")
 
 // Encrypts data from stdin and writes to stdout
 func encryptCommand(input io.Reader, output io.Writer, crypto EncryptionStrategy, wrapLines bool) {
@@ -48,8 +51,9 @@ func decryptStream(input io.Reader, output io.Writer, crypto DecryptionStrategy)
 }
 
 // Decrypts environment variables and writes them to stdout
-func decryptEnvironment(input []string, output io.Writer, crypto DecryptionStrategy) {
-	haserr := false
+func decryptEnvironment(input []string, output io.Writer, crypto DecryptionStrategy) (bool, error) {
+	ok := true
+	var err error
 
 	for _, item := range input {
 		keyval := strings.SplitN(item, "=", 2)
@@ -58,11 +62,18 @@ func decryptEnvironment(input []string, output io.Writer, crypto DecryptionStrat
 
 		envelopes := extractEnvelopes(value)
 		if len(envelopes) > 0 {
+			if !shellIdentifierRegexp.Match([]byte(key)) {
+				ok = false
+				err = fmt.Errorf("The env var '%s' is not a valid shell script identifier. Only alphanumeric characters and underscores are supported, starting with an alphabetic or underscore character.", key)
+				fmt.Fprintf(os.Stderr, "%s: %s\n", key, err)
+			}
+
 			for _, envelope := range envelopes {
-				plaintext, err := crypto.Decrypt(stripWhitespace(envelope))
-				if err != nil {
+				plaintext, suberr := crypto.Decrypt(stripWhitespace(envelope))
+				if suberr != nil {
+					ok = false
+					err = suberr
 					fmt.Fprintf(os.Stderr, "%s: %s\n", key, err)
-					haserr = true
 					continue
 				}
 
@@ -73,7 +84,5 @@ func decryptEnvironment(input []string, output io.Writer, crypto DecryptionStrat
 		}
 	}
 
-	if haserr {
-		os.Exit(1)
-	}
+	return ok, err
 }
