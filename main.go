@@ -124,7 +124,7 @@ func main() {
 
 	// Daemon command
 	{
-		var marathonURL, configKeyFile, masterKeyFile, daemonIP string
+		var marathonURL, configKeyFile, masterKeyFile, tlsCertFile, tlsKeyFile, daemonIP string
 		var daemonPort int
 
 		cmdDaemon := &cobra.Command{
@@ -143,7 +143,7 @@ func main() {
 				}
 
 				listenAddress := fmt.Sprintf("%s:%d", daemonIP, daemonPort)
-				daemonCommand(listenAddress, marathonURL, masterKey, composite)
+				daemonCommand(listenAddress, marathonURL, masterKey, tlsCertFile, tlsKeyFile, composite)
 			},
 		}
 
@@ -151,6 +151,8 @@ func main() {
 			defaults(os.Getenv("MARATHON_URL"), "http://localhost:8080"), "URL of Marathon")
 		cmdDaemon.Flags().StringVarP(&configKeyFile, "config-key", "", "", "Config public key file")
 		cmdDaemon.Flags().StringVarP(&masterKeyFile, "master-key", "", "", "Master private key file")
+		cmdDaemon.Flags().StringVarP(&tlsCertFile, "tls-cert-file", "", "", "TLS cert file")
+		cmdDaemon.Flags().StringVarP(&tlsKeyFile, "tls-key-file", "", "", "TLS key file")
 
 		cmdDaemon.Flags().StringVarP(&daemonIP, "ip", "i", "0.0.0.0", "Interface to bind to")
 		cmdDaemon.Flags().IntVarP(&daemonPort, "port", "p", 5070, "Port to listen on")

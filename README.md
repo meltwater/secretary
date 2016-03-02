@@ -331,6 +331,13 @@ The daemon has an HTTP health check endpoint at `/v1/status` that will respond w
 `HTTP 200 OK` if all is well. This could be used to point a load balancers health check
 mechanism at.
 
+### TLS Support
+
+In order to enable end to end encryption, you can supply the ssl certificate with the following options:
+```
+secretary daemon --tls-key-file <path to key file> --tls-cert-file <path to cert file>
+```
+
 ### Systemd
 Create a [Systemd unit](http://www.freedesktop.org/software/systemd/man/systemd.unit.html) file
 in **/etc/systemd/system/secretary.service** with contents like below.

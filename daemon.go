@@ -165,7 +165,7 @@ func statusEndpointHandler() func(http.ResponseWriter, *http.Request) {
 		message := DaemonStatusResponse{Status: "OK"}
 		encoded, err := json.Marshal(message)
 		if err != nil {
-			errorResponse(w, r, fmt.Errorf("Failed to serialize json response", err), http.StatusInternalServerError)
+			errorResponse(w, r, fmt.Errorf("Failed to serialize json response (%s)", err), http.StatusInternalServerError)
 			return
 		}
 
@@ -173,9 +173,16 @@ func statusEndpointHandler() func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-func daemonCommand(listenAddress string, marathonURL string, masterKey *[32]byte, strategy DecryptionStrategy) {
+func daemonCommand(listenAddress string, marathonURL string, masterKey *[32]byte, tlsCertFile string, tlsKeyFile string, strategy DecryptionStrategy) {
 	http.HandleFunc("/v1/decrypt", decryptEndpointHandler(marathonURL, masterKey, strategy))
 	http.HandleFunc("/v1/status", statusEndpointHandler())
-	log.Printf("Daemon listening on %s", listenAddress)
-	log.Fatal(http.ListenAndServe(listenAddress, nil))
+
+	if tlsCertFile != "" && tlsKeyFile != "" {
+		log.Printf("Daemon listening on TLS %s", listenAddress)
+		log.Fatal(http.ListenAndServeTLS(listenAddress, tlsCertFile, tlsKeyFile, nil))
+	} else {
+		log.Printf("Daemon listening on %s", listenAddress)
+		log.Fatal(http.ListenAndServe(listenAddress, nil))
+	}
+
 }
