@@ -3,9 +3,9 @@
 [![Coverage Status](http://codecov.io/github/meltwater/secretary/coverage.svg?branch=master)](http://codecov.io/github/meltwater/secretary?branch=master)
 
 [Secretary](https://en.wikipedia.org/wiki/Secretary#Etymology) helps solve the problem of
-secrets distribution and authorization in highly dynamic container and VM environments. 
+secrets distribution and authorization in highly dynamic container and VM environments.
 [NaCL](http://nacl.cr.yp.to/) and [AWS Key Management Service (KMS)](https://aws.amazon.com/kms/)
-are supported crypto backends and can be mixed freely. 
+are supported crypto backends and can be mixed freely.
 
 ## System Components
 
@@ -16,16 +16,16 @@ are supported crypto backends and can be mixed freely.
 - *config repo* containing configuration, public keys and encrypted secrets.
 
 ## Design
-In a standalone setup the `secretary` client performs decryption using either 
-local NaCL keys or by calling the AWS Key Management Service. 
+In a standalone setup the `secretary` client performs decryption using either
+local NaCL keys or by calling the AWS Key Management Service.
 
 In Mesos clusters it may not be desirable to have all slave nodes hold master keys or access KMS
 directly. A container would instead call `secretary daemon` which authenticates its signature and
-performs the decryption in a central place. The `secretary daemon` queries [Marathon](https://mesosphere.github.io/marathon/) 
+performs the decryption in a central place. The `secretary daemon` queries [Marathon](https://mesosphere.github.io/marathon/)
 to retrieve a containers public keys and determine what secrets it may access.
 
-Encryption is done at configuration time through public keys or by calling KMS. This 
-enables delegation of secrets management to non-admin users and help keep configuration, secrets 
+Encryption is done at configuration time through public keys or by calling KMS. This
+enables delegation of secrets management to non-admin users and help keep configuration, secrets
 and software versions together throughout the delivery pipeline.
 
 ### NaCL Crypto
@@ -48,7 +48,7 @@ service instances.
 - *deploy* key pair is used to control what service can access what secrets, and
   to authenticate services at runtime. It is generated automatically at deployment
   time for each service, and is part of the Marathon app config. When using
-  [Lighter](https://github.com/meltwater/lighter) it will generate this key pair 
+  [Lighter](https://github.com/meltwater/lighter) it will generate this key pair
   automatically.
 
   Access to the Marathon REST API should be restricted to avoid reading out the
@@ -63,10 +63,10 @@ service instances.
 ### Amazon AWS KMS
 Secretary can encrypt and decrypt secrets using [AWS Key Management Service](https://aws.amazon.com/kms/)
 which provides hardware security modules (HSMs) for key storage and access control, as well as audit logs
-of key usage. 
+of key usage.
 
-KMS coupled with IAM roles and CloudTrail provides access control and audit trails at the 
-instance level. AWS EC2 instances could then use `secretary` to decrypt secrets embedded into 
+KMS coupled with IAM roles and CloudTrail provides access control and audit trails at the
+instance level. AWS EC2 instances could then use `secretary` to decrypt secrets embedded into
 user-data or VM images.
 
 ### Compared to Centralized Systems?
@@ -74,7 +74,7 @@ Benefits of using public key cryptography compared to centrally
 managed token-based systems like [Vault](https://github.com/hashicorp/vault) or
 [KeyWhiz](https://github.com/square/keywhiz)
 
-- Encryption of secrets and modifications to the *config repo* can safely be 
+- Encryption of secrets and modifications to the *config repo* can safely be
   performed without needing admin access to a central secrets management system.
 
 - It's often desirable to tightly couple deployment of configuration and secrets
@@ -93,13 +93,13 @@ secrets. A token should typically not be checked into source control or it will 
 available to anyone with access to the *config repo*.
 
 Secretary mitigates this problem by storing encrypted secrets in the *config repo* and
-keeping them encrypted all the way into the runtime environment. Secrets are only ever 
+keeping them encrypted all the way into the runtime environment. Secrets are only ever
 decrypted inside the container at startup and stored in environment variables visible
-only to the service. 
+only to the service.
 
-Secrets can only be accessed by a process that holds both the deploy and service private 
-keys. The deploy key is generated for each single deployment and is available only to 
-specific containers. While the service key is available on slave nodes or embedded into 
+Secrets can only be accessed by a process that holds both the deploy and service private
+keys. The deploy key is generated for each single deployment and is available only to
+specific containers. While the service key is available on slave nodes or embedded into
 a single application image.
 
 ### What is needed to get the secrets?
@@ -126,7 +126,7 @@ with other environment config and encrypted secrets. This enables users with acc
 *config repo* to encrypt secrets and store them in the config.
 
 Generate a new *deploy* key for each deployment and insert it into the `env` element
-of the Marathon app config. [Lighter](https://github.com/meltwater/lighter) will perform 
+of the Marathon app config. [Lighter](https://github.com/meltwater/lighter) will perform
 this step automatically given this config example
 
 *someenv/globals.yml* - stored in the Lighter *config repo*
@@ -333,7 +333,8 @@ mechanism at.
 
 ### TLS Support
 
-In order to enable end to end encryption, you can supply the ssl certificate with the following options:
+In order to enable end to end encryption, you can supply the ssl certificate
+through environment variable: `TLS_KEY_FILE` and `TLS_CERT_KEY` or with the following options:
 ```
 secretary daemon --tls-key-file <path to key file> --tls-cert-file <path to cert file>
 ```
@@ -398,16 +399,16 @@ When interacting with KMS to encrypt or decrypt secrets you or the instance need
 and the specific KMS key. Key access is managed via the AWS IAM console and can be both on the KMS API level
 as well as fine grained permissions for each key.
 
-For workstation access to encrypt secrets you typically need AWS credentials setup in *~/.aws/credentials* or 
-environment variables *$AWS_ACCESS_KEY*, *$AWS_SECRET_ACCESS_KEY* and *$AWS_REGION* so that secretary can interact 
+For workstation access to encrypt secrets you typically need AWS credentials setup in *~/.aws/credentials* or
+environment variables *$AWS_ACCESS_KEY*, *$AWS_SECRET_ACCESS_KEY* and *$AWS_REGION* so that secretary can interact
 with the KMS API.
 
-AWS EC2 instances should use IAM roles rather than access keys, to grant them access to the KMS API and the 
+AWS EC2 instances should use IAM roles rather than access keys, to grant them access to the KMS API and the
 specific KMS keys.
 
 ### Secrets in user-data
 When using [CoreOS cloud-config](https://coreos.com/os/docs/latest/cloud-config.html) and passing secrets
-in the user-data section. 
+in the user-data section.
 
 In the examples replace the SECRETARY_VERSION with a version from the [releases page](https://github.com/meltwater/secretary/releases).
 You also need to replace the `e59c5534e4e6fb3c2ad0d3c075d9e2fa664889b9` sha1sum with one that is calculated
@@ -418,8 +419,8 @@ curl -sSL https://github.com/meltwater/secretary/releases/download/${SECRETARY_V
 ```
 
 #### Embedded Secretary binary
-This CoreOS user-data example writes out /etc/environment.encrypted with encrypted secrets and forwards them 
-into a Docker container as encrypted environment variables. The Docker image embeds the secretary binary and 
+This CoreOS user-data example writes out /etc/environment.encrypted with encrypted secrets and forwards them
+into a Docker container as encrypted environment variables. The Docker image embeds the secretary binary and
 its startup script decrypts the environment using `eval $(secretary decrypt -e)`
 
 ```
@@ -468,7 +469,7 @@ write_files:
 ```
 
 #### External Secretary binary
-This CoreOS user-data example writes out /etc/environment.encrypted with encrypted secrets. Then uses 
+This CoreOS user-data example writes out /etc/environment.encrypted with encrypted secrets. Then uses
 secretary and KMS to decrypt them and forwards the secrets into a Docker container as unencrypted environment variables.
 
 ```
@@ -500,9 +501,9 @@ coreos:
 
       # Download and verify signature of secretary binary
       ExecStartPre=/bin/sh -c '\
-        if [ ! -f /usr/bin/secretary ]; then 
+        if [ ! -f /usr/bin/secretary ]; then
           curl -sSLo /usr/bin/secretary https://github.com/meltwater/secretary/releases/download/${SECRETARY_VERSION}/secretary-Linux-x86_64 && \
-          chmod +x /usr/bin/secretary; 
+          chmod +x /usr/bin/secretary;
         fi'
       ExecStartPre=/bin/sh -c 'echo e59c5534e4e6fb3c2ad0d3c075d9e2fa664889b9 /usr/bin/secretary | sha1sum -c -'
 
