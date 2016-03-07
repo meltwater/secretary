@@ -151,8 +151,8 @@ func main() {
 			defaults(os.Getenv("MARATHON_URL"), "http://localhost:8080"), "URL of Marathon")
 		cmdDaemon.Flags().StringVarP(&configKeyFile, "config-key", "", "", "Config public key file")
 		cmdDaemon.Flags().StringVarP(&masterKeyFile, "master-key", "", "", "Master private key file")
-		cmdDaemon.Flags().StringVarP(&tlsCertFile, "tls-cert-file", "", "", "TLS cert file")
-		cmdDaemon.Flags().StringVarP(&tlsKeyFile, "tls-key-file", "", "", "TLS key file")
+		cmdDaemon.Flags().StringVarP(&tlsCertFile, "tls-cert-file", "", os.Getenv("TLS_CERT_FILE"), "TLS cert file")
+		cmdDaemon.Flags().StringVarP(&tlsKeyFile, "tls-key-file", "", os.Getenv("TLS_KEY_FILE"), "TLS key file")
 
 		cmdDaemon.Flags().StringVarP(&daemonIP, "ip", "i", "0.0.0.0", "Interface to bind to")
 		cmdDaemon.Flags().IntVarP(&daemonPort, "port", "p", 5070, "Port to listen on")
