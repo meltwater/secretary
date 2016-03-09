@@ -334,7 +334,7 @@ mechanism at.
 ### TLS Support
 
 In order to enable end to end encryption, you can supply the ssl certificate
-through environment variable: `TLS_KEY_FILE` and `TLS_CERT_KEY` or with the following options:
+through environment variable: `TLS_KEY_FILE` and `TLS_CERT_FILE` or with the following options:
 ```
 secretary daemon --tls-key-file <path to key file> --tls-cert-file <path to cert file>
 ```
