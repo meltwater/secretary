@@ -18,30 +18,37 @@ func TestVerifyRunningTask(t *testing.T) {
 
 	ok, err := verifyRunningTask(appID, appVersion, taskID, response)
 	assert.True(t, ok)
+	assert.Nil(t, err)
 
 	// Verify that appID is checked
 	ok, err = verifyRunningTask("/demo/webap1", appVersion, taskID, response)
 	assert.False(t, ok)
+	assert.NotNil(t, err)
 
 	// Verify that appVersion is checked
 	ok, err = verifyRunningTask(appID, "2014-12-04T12:25:08.426Z", taskID, response)
 	assert.False(t, ok)
+	assert.NotNil(t, err)
 
 	// Verify that taskID is checked
 	ok, err = verifyRunningTask(appID, appVersion, "demo_webap1.0f810e10-9a82-11e5-94c7-6a515f434e2d", response)
 	assert.False(t, ok)
+	assert.NotNil(t, err)
 
 	// Verify bad responses
 	ok, err = verifyRunningTask(appID, appVersion, taskID, []byte(`{}`))
 	assert.False(t, ok)
+	assert.NotNil(t, err)
 
 	// Verify bad responses
 	ok, err = verifyRunningTask(appID, appVersion, taskID, []byte(`{"app": {}}`))
 	assert.False(t, ok)
+	assert.NotNil(t, err)
 
 	// Verify bad responses
 	ok, err = verifyRunningTask(appID, appVersion, taskID, []byte(`%"#¤%"#¤`))
 	assert.False(t, ok)
+	assert.NotNil(t, err)
 }
 
 func TestParseApplicationVersion(t *testing.T) {
