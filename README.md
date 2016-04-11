@@ -1,6 +1,7 @@
 # Secretary
 [![Travis CI](https://img.shields.io/travis/meltwater/secretary/master.svg)](https://travis-ci.org/meltwater/secretary)
 [![Coverage Status](http://codecov.io/github/meltwater/secretary/coverage.svg?branch=master)](http://codecov.io/github/meltwater/secretary?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/meltwater/secretary)](https://goreportcard.com/report/github.com/meltwater/secretary)
 
 [Secretary](https://en.wikipedia.org/wiki/Secretary#Etymology) helps solve the problem of
 secrets distribution and authorization in highly dynamic container and VM environments.
