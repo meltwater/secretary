@@ -502,17 +502,17 @@ coreos:
 
       # Download and verify signature of secretary binary
       ExecStartPre=/bin/sh -c '\
-        if [ ! -f /usr/bin/secretary ]; then
-          curl -sSLo /usr/bin/secretary https://github.com/meltwater/secretary/releases/download/${SECRETARY_VERSION}/secretary-Linux-x86_64 && \
-          chmod +x /usr/bin/secretary;
+        if [ ! -f /tmp/secretary ]; then \
+          curl -sSLo /tmp/secretary https://github.com/meltwater/secretary/releases/download/${SECRETARY_VERSION}/secretary-Linux-x86_64 && \
+          chmod +x /tmp/secretary; \
         fi'
-      ExecStartPre=/bin/sh -c 'echo e59c5534e4e6fb3c2ad0d3c075d9e2fa664889b9 /usr/bin/secretary | sha1sum -c -'
+      ExecStartPre=/bin/sh -c 'echo e59c5534e4e6fb3c2ad0d3c075d9e2fa664889b9 /tmp/secretary | sha1sum -c -'
 
       # Start Docker container
       ExecStartPre=-/usr/bin/docker kill ${NAME}
       ExecStartPre=-/usr/bin/docker rm ${NAME}
       ExecStartPre=-/bin/sh -c 'if ! docker images | tr -s " " : | grep "^${IMAGE}:"; then docker pull "${IMAGE}"; fi'      
-      ExecStart=/bin/sh -c 'eval $(secretary decrypt -e) && docker run --name myservice \
+      ExecStart=/bin/sh -c 'eval $(/tmp/secretary decrypt -e) && docker run --name myservice \
         -e "DATABASE_PASSWORD=${DATABASE_PASSWORD}" \
         -e "API_KEY=${API_KEY}" \
         myservice:latest'
