@@ -1,5 +1,5 @@
 hash: 53631256b18ad67729c084e889cc48a26ddb71996a9ac51a02dc0f75a715b016
-updated: 2016-07-19T16:42:25.64010548+02:00
+updated: 2016-07-19T16:58:37.496994643+02:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: bc2c5714d312337494394909e7cc3a19a2e68530
@@ -55,4 +55,12 @@ imports:
   - curve25519
   - salsa20/salsa
   - poly1305
-devImports: []
+testImports:
+- name: github.com/davecgh/go-spew
+  version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
+  subpackages:
+  - spew
+- name: github.com/pmezard/go-difflib
+  version: e8554b8641db39598be7f6342874b958f12ae1d4
+  subpackages:
+  - difflib
