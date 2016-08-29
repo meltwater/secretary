@@ -5,3 +5,4 @@ coverage.txt
 vendor/
 .aws
 keys/
+.idea
