@@ -65,7 +65,13 @@ func (k *KmsClientImpl) Decrypt(data []byte) (*[32]byte, error) {
 }
 
 func newKmsClient() *KmsClientImpl {
-	return &KmsClientImpl{Impl: kms.New(session.New())}
+	// Force enable Shared Config to support $AWS_DEFAULT_REGION
+	sess, err := session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	})
+	check(err, "Failed to initialize AWS session")
+
+	return &KmsClientImpl{Impl: kms.New(sess)}
 }
 
 // KmsEncryptionStrategy implements envelope encryption using Amazon AWS KMS
