@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/kms"
 
 	"golang.org/x/crypto/nacl/secretbox"
@@ -31,12 +34,66 @@ type KmsClientImpl struct {
 	Impl *kms.KMS
 }
 
+// A function that operates on the KMS service
+type KmsFunction func(*kms.KMS) error
+
+// Executes a function with retry for MissingRegion errors
+func (k *KmsClientImpl) CallWithRetry(f KmsFunction) error {
+	// Lazy initialize the session
+	if k.Impl == nil {
+		// Force enable Shared Config to support $AWS_DEFAULT_REGION
+		sess, err := session.NewSessionWithOptions(session.Options{
+			SharedConfigState: session.SharedConfigEnable,
+		})
+
+		if err != nil {
+			return err
+		}
+
+		k.Impl = kms.New(sess)
+	}
+
+	// Invoke the function
+	err := f(k.Impl)
+
+	// Attempt to use EC2 meta-data service in case of MissingRegion error
+	if err == aws.ErrMissingRegion {
+		body, err := httpGet("http://169.254.169.254/2016-06-30/dynamic/instance-identity/document")
+		if err == nil {
+			var doc ec2metadata.EC2InstanceIdentityDocument
+			err := json.Unmarshal(body, &doc)
+
+			if err == nil {
+				sess, err := session.NewSessionWithOptions(session.Options{
+					Config: aws.Config{Region: aws.String(doc.Region)},
+					SharedConfigState: session.SharedConfigEnable,
+				})
+
+				if err == nil {
+					k.Impl = kms.New(sess)
+
+					// Retry the function with the new session
+					return f(k.Impl)
+				}
+			}
+		}
+	}
+
+	return err
+}
+
 // GenerateDataKey returns a new symmetric key and its encrypted form
 func (k *KmsClientImpl) GenerateDataKey(keyID string) (*[32]byte, []byte, error) {
+	var response *kms.GenerateDataKeyOutput
 	bytes := int64(32)
-	response, err := k.Impl.GenerateDataKey(&kms.GenerateDataKeyInput{
-		KeyId:         &keyID,
-		NumberOfBytes: &bytes,
+
+	err := k.CallWithRetry(func(impl *kms.KMS) error {
+		var ferr error
+		response, ferr = impl.GenerateDataKey(&kms.GenerateDataKeyInput{
+			KeyId:         &keyID,
+			NumberOfBytes: &bytes,
+		})
+		return ferr
 	})
 
 	if err != nil {
@@ -53,8 +110,14 @@ func (k *KmsClientImpl) GenerateDataKey(keyID string) (*[32]byte, []byte, error)
 
 // Decrypt a symmetric key
 func (k *KmsClientImpl) Decrypt(data []byte) (*[32]byte, error) {
-	response, err := k.Impl.Decrypt(&kms.DecryptInput{
-		CiphertextBlob: data,
+	var response *kms.DecryptOutput
+
+	err := k.CallWithRetry(func(impl *kms.KMS) error {
+		var ferr error
+		response, ferr = impl.Decrypt(&kms.DecryptInput{
+			CiphertextBlob: data,
+		})
+		return ferr
 	})
 
 	if err != nil {
@@ -65,7 +128,7 @@ func (k *KmsClientImpl) Decrypt(data []byte) (*[32]byte, error) {
 }
 
 func newKmsClient() *KmsClientImpl {
-	return &KmsClientImpl{Impl: kms.New(session.New())}
+	return &KmsClientImpl{}
 }
 
 // KmsEncryptionStrategy implements envelope encryption using Amazon AWS KMS
