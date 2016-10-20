@@ -18,12 +18,3 @@ func TestKms(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "secret", string(plaintext))
 }
-
-func TestUnsupportedDecryptionStrategy(t *testing.T) {
-	composite := newCompositeDecryptionStrategy()
-
-	plaintext, err := composite.Decrypt("ENC[NACL,fB7RSmpONiUGzaHtd8URiTSKqfBhor6BsJLSQErHH9NSgLTnxNLF60YS8ZT2IQ==]")
-	assert.Nil(t, plaintext)
-	assert.NotNil(t, err)
-	assert.Equal(t, "Not configured for decrypting ENC[NACL,..] values", err.Error())
-}

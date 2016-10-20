@@ -42,52 +42,52 @@ func TestAsNonce(t *testing.T) {
 }
 
 func TestFindKey(t *testing.T) {
-	expected := Encode(pemRead("./resources/test/keys/config-public-key.pem")[:])
-	assert.Equal(t, expected, Encode(findKey("", "RANDOM_ENVVAR_THAT_DOESNT_EXIST", "./resources/test/keys/config-public-key.pem")[:]))
-	assert.Nil(t, findKey("", "RANDOM_ENVVAR_THAT_DOESNT_EXIST", "./resources/test/keys/nonexist-public-key.pem"))
+	expected := Encode(PemRead("../resources/test/keys/config-public-key.pem")[:])
+	assert.Equal(t, expected, Encode(FindKey("", "RANDOM_ENVVAR_THAT_DOESNT_EXIST", "../resources/test/keys/config-public-key.pem")[:]))
+	assert.Nil(t, FindKey("", "RANDOM_ENVVAR_THAT_DOESNT_EXIST", "../resources/test/keys/nonexist-public-key.pem"))
 }
 
 func TestExtractEnvelopes(t *testing.T) {
-	envelopes := extractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/")
+	envelopes := ExtractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/")
 	assert.Equal(t, 2, len(envelopes))
 	assert.Equal(t, []string{"ENC[NACL,uSr123+/=]", "ENC[NACL,pWd123+/=]"}, envelopes)
 
-	envelopes = extractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/ENC[NACL,def123+/=]")
+	envelopes = ExtractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/ENC[NACL,def123+/=]")
 	assert.Equal(t, 3, len(envelopes))
 	assert.Equal(t, []string{"ENC[NACL,uSr123+/=]", "ENC[NACL,pWd123+/=]", "ENC[NACL,def123+/=]"}, envelopes)
 
-	envelopes = extractEnvelopes("amqp://ENC[NACL,]:ENC[NACL,pWd123+/=]@rabbit:5672/")
+	envelopes = ExtractEnvelopes("amqp://ENC[NACL,]:ENC[NACL,pWd123+/=]@rabbit:5672/")
 	assert.Equal(t, 1, len(envelopes))
 	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
 
-	envelopes = extractEnvelopes("amqp://ENC[NACL,:ENC[NACL,pWd123+/=]@rabbit:5672/")
+	envelopes = ExtractEnvelopes("amqp://ENC[NACL,:ENC[NACL,pWd123+/=]@rabbit:5672/")
 	assert.Equal(t, 1, len(envelopes))
 	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
 
-	envelopes = extractEnvelopes("amqp://NC[NACL,]:ENC[NACL,pWd123+/=]@rabbit:5672/")
+	envelopes = ExtractEnvelopes("amqp://NC[NACL,]:ENC[NACL,pWd123+/=]@rabbit:5672/")
 	assert.Equal(t, 1, len(envelopes))
 	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
 
-	envelopes = extractEnvelopes("amqp://ENC[NACL,abc:ENC[NACL,pWd123+/=]@rabbit:5672/")
+	envelopes = ExtractEnvelopes("amqp://ENC[NACL,abc:ENC[NACL,pWd123+/=]@rabbit:5672/")
 	assert.Equal(t, 1, len(envelopes))
 	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
 }
 
 func TestExtractEnvelopeType(t *testing.T) {
-	assert.Equal(t, "", extractEnvelopeType("ENC[NACL,]"))
-	assert.Equal(t, "NACL", extractEnvelopeType("ENC[NACL,abc]"))
-	assert.Equal(t, "", extractEnvelopeType("ENC[KMS,]"))
-	assert.Equal(t, "KMS", extractEnvelopeType("ENC[KMS,abc]"))
-	assert.Equal(t, "", extractEnvelopeType("ENC[NACL,"))
-	assert.Equal(t, "", extractEnvelopeType("NC[NACL,]"))
-	assert.Equal(t, "", extractEnvelopeType("ENC[NACL,abc"))
-	assert.Equal(t, "", extractEnvelopeType("ENC[ACL,abc"))
+	assert.Equal(t, "", ExtractEnvelopeType("ENC[NACL,]"))
+	assert.Equal(t, "NACL", ExtractEnvelopeType("ENC[NACL,abc]"))
+	assert.Equal(t, "", ExtractEnvelopeType("ENC[KMS,]"))
+	assert.Equal(t, "KMS", ExtractEnvelopeType("ENC[KMS,abc]"))
+	assert.Equal(t, "", ExtractEnvelopeType("ENC[NACL,"))
+	assert.Equal(t, "", ExtractEnvelopeType("NC[NACL,]"))
+	assert.Equal(t, "", ExtractEnvelopeType("ENC[NACL,abc"))
+	assert.Equal(t, "", ExtractEnvelopeType("ENC[ACL,abc"))
 }
 
 func TestEncodeDecode(t *testing.T) {
 	publicKey, _, err := box.GenerateKey(rand.Reader)
-	encoded := pemEncode(publicKey, "NACL PUBLIC KEY")
-	decoded, err := pemDecode(encoded)
+	encoded := PemEncode(publicKey, "NACL PUBLIC KEY")
+	decoded, err := PemDecode(encoded)
 	assert.Nil(t, err)
 	assert.Equal(t, publicKey, decoded, "Key must be same after encode/decode cycle")
 }
@@ -98,44 +98,38 @@ func TestDecodeWithoutHeader(t *testing.T) {
 -----END NACL PUBLIC KEY-----`
 	strippedKey := `/1fbWGMTaR+lLQJnEsmxdfwWybKOpPQpyWB3FpNmOF4=`
 
-	decoded, err := pemDecode(completeKey)
+	decoded, err := PemDecode(completeKey)
 	assert.Nil(t, err)
 
-	decoded2, err := pemDecode(strippedKey)
+	decoded2, err := PemDecode(strippedKey)
 	assert.Nil(t, err)
 	assert.Equal(t, decoded, decoded2, "Keys must be decode to same value")
 }
 
 func TestDecryptEnvelope(t *testing.T) {
 	envelope := `ENC[NACL,WLWwVUGVX7tTJd84mRioKQflzoTUWMj+PMtrO+c2oxEbnJba3ILzlyqhBKbd2Q==]`
-	privkey, err := pemDecode(privateKey)
+	privkey, err := PemDecode(privateKey)
 	assert.Nil(t, err)
 
-	pubkey, err := pemDecode(publicKey)
+	pubkey, err := PemDecode(publicKey)
 	assert.Nil(t, err)
 
-	plaintext, err := decryptEnvelope(pubkey, privkey, envelope)
+	plaintext, err := DecryptEnvelope(pubkey, privkey, envelope)
 	assert.Nil(t, err)
 	assert.Equal(t, "secret", string(plaintext), "Should decrypt plaintext")
 }
 
 func TestEncryptEnvelope(t *testing.T) {
-	privkey, err := pemDecode(privateKey)
+	privkey, err := PemDecode(privateKey)
 	assert.Nil(t, err)
 
-	pubkey, err := pemDecode(publicKey)
+	pubkey, err := PemDecode(publicKey)
 	assert.Nil(t, err)
 
-	envelope, err := encryptEnvelope(pubkey, privkey, []byte("secret"))
+	envelope, err := EncryptEnvelope(pubkey, privkey, []byte("secret"))
 	assert.Nil(t, err)
 
-	plaintext, err := decryptEnvelope(pubkey, privkey, envelope)
+	plaintext, err := DecryptEnvelope(pubkey, privkey, envelope)
 	assert.Nil(t, err)
 	assert.Equal(t, "secret", string(plaintext), "Should decrypt plaintext")
-}
-
-func BenchmarkExtractEnvelopes(b *testing.B) {
-	for n := 0; n < b.N; n++ {
-		extractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/")
-	}
 }

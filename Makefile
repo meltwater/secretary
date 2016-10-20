@@ -19,7 +19,7 @@ build:
 	 ln -sf "secretary-`uname -s`-`uname -m`" secretary
 
 test:
-	go test -bench=. -v -coverprofile=coverage.txt -covermode=atomic
+	go test -v $$(go list ./... | grep -v /vendor/)
 
 lint:
 	golint

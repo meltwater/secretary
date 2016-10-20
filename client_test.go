@@ -346,3 +346,12 @@ func TestCompositeDecryptionStrategy(t *testing.T) {
 		assert.Equal(t, "Not configured for decrypting ENC[,..] values", err.Error())
 	}
 }
+
+func TestUnsupportedDecryptionStrategy(t *testing.T) {
+	composite := NewCompositeDecryptionStrategy()
+
+	plaintext, err := composite.Decrypt("ENC[NACL,fB7RSmpONiUGzaHtd8URiTSKqfBhor6BsJLSQErHH9NSgLTnxNLF60YS8ZT2IQ==]")
+	assert.Nil(t, plaintext)
+	assert.NotNil(t, err)
+	assert.Equal(t, "Not configured for decrypting ENC[NACL,..] values", err.Error())
+}

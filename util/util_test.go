@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/meltwater/secretary/util"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,11 +21,11 @@ func TestCheck(t *testing.T) {
 		}
 	}()
 
-	util.Check(errors.New("Inner Error"), "Test Error")
+	Check(errors.New("Inner Error"), "Test Error")
 }
 
 func TestAssert(t *testing.T) {
-	// Handle util.Checked errors nicely
+	// Handle checked errors nicely
 	defer func() {
 		if err := recover(); err != nil {
 			switch err.(type) {
@@ -38,36 +37,36 @@ func TestAssert(t *testing.T) {
 		}
 	}()
 
-	assertThat(false, "Test Error")
+	AssertThat(false, "Test Error")
 }
 
 func TestMin(t *testing.T) {
-	assert.Equal(t, 1, min(1, 2))
-	assert.Equal(t, 1, min(2, 1))
+	assert.Equal(t, 1, Min(1, 2))
+	assert.Equal(t, 1, Min(2, 1))
 }
 
 func TestMax(t *testing.T) {
-	assert.Equal(t, 2, max(1, 2))
-	assert.Equal(t, 2, max(2, 1))
+	assert.Equal(t, 2, Max(1, 2))
+	assert.Equal(t, 2, Max(2, 1))
 }
 
 func TestEllipsis(t *testing.T) {
-	assert.Equal(t, "123", ellipsis("123", 5))
-	assert.Equal(t, "12345", ellipsis("12345", 5))
-	assert.Equal(t, "12...", ellipsis("123456", 5))
-	assert.Equal(t, "", ellipsis("", 5))
+	assert.Equal(t, "123", Ellipsis("123", 5))
+	assert.Equal(t, "12345", Ellipsis("12345", 5))
+	assert.Equal(t, "12...", Ellipsis("123456", 5))
+	assert.Equal(t, "", Ellipsis("", 5))
 }
 
 func TestDefaults(t *testing.T) {
-	assert.Equal(t, "abc", defaults("abc", "123"))
-	assert.Equal(t, "123", defaults("", "123"))
-	assert.Equal(t, "", defaults("", ""))
-	assert.Equal(t, "", defaults(""))
-	assert.Equal(t, "", defaults())
+	assert.Equal(t, "abc", Defaults("abc", "123"))
+	assert.Equal(t, "123", Defaults("", "123"))
+	assert.Equal(t, "", Defaults("", ""))
+	assert.Equal(t, "", Defaults(""))
+	assert.Equal(t, "", Defaults())
 }
 
 func TestStripWhitespace(t *testing.T) {
-	assert.Equal(t, "abc", stripWhitespace(" a b c "))
-	assert.Equal(t, "abc", stripWhitespace(" a b\n c "))
-	assert.Equal(t, "abc", stripWhitespace(" a \r\nb\n c \n"))
+	assert.Equal(t, "abc", StripWhitespace(" a b c "))
+	assert.Equal(t, "abc", StripWhitespace(" a b\n c "))
+	assert.Equal(t, "abc", StripWhitespace(" a \r\nb\n c \n"))
 }
