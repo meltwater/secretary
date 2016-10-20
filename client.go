@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+
+	"github.com/meltwater/secretary/box"
+	"github.com/meltwater/secretary/util"
 )
 
 // EncryptionStrategy is a generic encryption mechanism
@@ -24,7 +27,7 @@ type CompositeDecryptionStrategy struct {
 // Decrypt decrypts an envelope
 func (k *CompositeDecryptionStrategy) Decrypt(envelope string) ([]byte, error) {
 	// Get the type of encryption {NACL, KMS}
-	envelopeType := extractEnvelopeType(envelope)
+	envelopeType := box.ExtractEnvelopeType(envelope)
 	strategy := k.Strategies[envelopeType]
 
 	if strategy != nil {
@@ -39,7 +42,7 @@ func (k *CompositeDecryptionStrategy) Add(envelopeType string, strategy Decrypti
 	k.Strategies[envelopeType] = strategy
 }
 
-func newCompositeDecryptionStrategy() *CompositeDecryptionStrategy {
+func NewCompositeDecryptionStrategy() *CompositeDecryptionStrategy {
 	return &CompositeDecryptionStrategy{Strategies: make(map[string]DecryptionStrategy)}
 }
 
@@ -50,10 +53,10 @@ type KeyEncryptionStrategy struct {
 
 // Encrypt encrypts a buffer and returns an envelope
 func (k *KeyEncryptionStrategy) Encrypt(plaintext []byte) (string, error) {
-	return encryptEnvelope(k.PublicKey, k.PrivateKey, plaintext)
+	return box.EncryptEnvelope(k.PublicKey, k.PrivateKey, plaintext)
 }
 
-func newKeyEncryptionStrategy(publicKey *[32]byte, privateKey *[32]byte) *KeyEncryptionStrategy {
+func NewKeyEncryptionStrategy(publicKey *[32]byte, privateKey *[32]byte) *KeyEncryptionStrategy {
 	return &KeyEncryptionStrategy{PublicKey: publicKey, PrivateKey: privateKey}
 }
 
@@ -64,10 +67,10 @@ type KeyDecryptionStrategy struct {
 
 // Decrypt decrypts an envelope
 func (k *KeyDecryptionStrategy) Decrypt(envelope string) ([]byte, error) {
-	return decryptEnvelope(k.PublicKey, k.PrivateKey, envelope)
+	return box.DecryptEnvelope(k.PublicKey, k.PrivateKey, envelope)
 }
 
-func newKeyDecryptionStrategy(publicKey *[32]byte, privateKey *[32]byte) *KeyDecryptionStrategy {
+func NewKeyDecryptionStrategy(publicKey *[32]byte, privateKey *[32]byte) *KeyDecryptionStrategy {
 	return &KeyDecryptionStrategy{PublicKey: publicKey, PrivateKey: privateKey}
 }
 
@@ -77,7 +80,7 @@ type DaemonDecryptionStrategy struct {
 	MasterKey, DeployKey, ServiceKey     *[32]byte
 }
 
-func newDaemonDecryptionStrategy(
+func NewDaemonDecryptionStrategy(
 	daemonURL string, appID string, appVersion string, taskID string,
 	masterKey *[32]byte, deployKey *[32]byte, serviceKey *[32]byte) *DaemonDecryptionStrategy {
 	return &DaemonDecryptionStrategy{
@@ -98,7 +101,7 @@ func (r *DaemonDecryptionStrategy) Decrypt(envelope string) ([]byte, error) {
 
 	// Encrypt with service key and send to daemon
 	if r.ServiceKey != nil {
-		encryptedEnvelope, err := encryptEnvelope(r.MasterKey, r.ServiceKey, encoded)
+		encryptedEnvelope, err := box.EncryptEnvelope(r.MasterKey, r.ServiceKey, encoded)
 		if err != nil {
 			return nil, err
 		}
@@ -107,13 +110,13 @@ func (r *DaemonDecryptionStrategy) Decrypt(envelope string) ([]byte, error) {
 	}
 
 	// Encrypt with deploy key and send to daemon
-	requestEnvelope, err := encryptEnvelope(r.MasterKey, r.DeployKey, encoded)
+	requestEnvelope, err := box.EncryptEnvelope(r.MasterKey, r.DeployKey, encoded)
 	if err != nil {
 		return nil, err
 	}
 
 	// Envelope is already encrypted with service key
-	response, err := httpPostForm(fmt.Sprintf("%s/v1/decrypt", r.DaemonURL), url.Values{
+	response, err := util.HttpPostForm(fmt.Sprintf("%s/v1/decrypt", r.DaemonURL), url.Values{
 		"appid":      {r.AppID},
 		"appversion": {r.AppVersion},
 		"taskid":     {r.TaskID},
@@ -123,14 +126,14 @@ func (r *DaemonDecryptionStrategy) Decrypt(envelope string) ([]byte, error) {
 	}
 
 	// Decrypt response using deploy key
-	response, err = decryptEnvelope(r.MasterKey, r.DeployKey, string(response))
+	response, err = box.DecryptEnvelope(r.MasterKey, r.DeployKey, string(response))
 	if err != nil {
 		return nil, fmt.Errorf("Failed to decrypt daemon response using deploy key (%s)", err)
 	}
 
 	// Decrypt response using service key
 	if r.ServiceKey != nil {
-		response, err = decryptEnvelope(r.MasterKey, r.ServiceKey, string(response))
+		response, err = box.DecryptEnvelope(r.MasterKey, r.ServiceKey, string(response))
 		if err != nil {
 			return nil, fmt.Errorf("Failed to decrypt daemon response using service key (%s)", err)
 		}
@@ -143,7 +146,7 @@ func (r *DaemonDecryptionStrategy) Decrypt(envelope string) ([]byte, error) {
 		return nil, fmt.Errorf("Failed to parse JSON respons (%s)", err)
 	}
 
-	plaintext, err := decode(parsedResponse.PlaintextSecret)
+	plaintext, err := box.Decode(parsedResponse.PlaintextSecret)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to base64 decode plaintext secret (%s)", err)
 	}

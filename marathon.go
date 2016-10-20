@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/meltwater/secretary/box"
+	"github.com/meltwater/secretary/util"
 )
 
 // MarathonTaskResponse is the /v2/apps/{app_id}/tasks response struct
@@ -78,7 +81,7 @@ func parseApplicationVersion(appID string, appVersion string, taskID string, bod
 		return nil, errors.New("App is missing $DEPLOY_PUBLIC_KEY in the Marathon config \"env\" section")
 	}
 
-	deployKey, err := pemDecode(encodedDeployKey)
+	deployKey, err := box.PemDecode(encodedDeployKey)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to decode $DEPLOY_PUBLIC_KEY (%s)", err)
 	}
@@ -87,7 +90,7 @@ func parseApplicationVersion(appID string, appVersion string, taskID string, bod
 	encodedServiceKey, ok := taskVersion.Env["SERVICE_PUBLIC_KEY"]
 	var serviceKey *[32]byte
 	if ok {
-		serviceKey, err = pemDecode(encodedServiceKey)
+		serviceKey, err = box.PemDecode(encodedServiceKey)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to decode $SERVICE_PUBLIC_KEY (%s)", err)
 		}
@@ -104,7 +107,7 @@ func getMarathonApp(marathonURL string, appID string, appVersion string, taskID 
 		// Fetch the list of running tasks for this app
 		url := fmt.Sprintf("%s/v2/apps/%s?embed=apps.tasks", marathonURL,
 			strings.Replace(strings.Replace(url.QueryEscape(strings.TrimLeft(appID, "/")), "..", "", -1), "%2F", "/", -1))
-		body, err := httpGet(url)
+		body, err := util.HttpGet(url)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +122,7 @@ func getMarathonApp(marathonURL string, appID string, appVersion string, taskID 
 	url := fmt.Sprintf("%s/v2/apps/%s/versions/%s", marathonURL,
 		strings.Replace(strings.Replace(url.QueryEscape(strings.TrimLeft(appID, "/")), "..", "", -1), "%2F", "/", -1),
 		url.QueryEscape(appVersion))
-	body, err := httpGet(url)
+	body, err := util.HttpGet(url)
 	if err != nil {
 		return nil, err
 	}

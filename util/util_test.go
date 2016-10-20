@@ -1,10 +1,11 @@
-package main
+package util
 
 import (
 	"errors"
 	"fmt"
 	"testing"
 
+	"github.com/meltwater/secretary/util"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,11 +22,11 @@ func TestCheck(t *testing.T) {
 		}
 	}()
 
-	check(errors.New("Inner Error"), "Test Error")
+	util.Check(errors.New("Inner Error"), "Test Error")
 }
 
 func TestAssert(t *testing.T) {
-	// Handle checked errors nicely
+	// Handle util.Checked errors nicely
 	defer func() {
 		if err := recover(); err != nil {
 			switch err.(type) {

@@ -7,13 +7,15 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/meltwater/secretary/box"
+	"github.com/meltwater/secretary/kms"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestKeyDecryptionStrategy(t *testing.T) {
-	crypto := newKeyDecryptionStrategy(
-		pemRead("./resources/test/keys/config-public-key.pem"),
-		pemRead("./resources/test/keys/master-private-key.pem"))
+	crypto := NewKeyDecryptionStrategy(
+		box.PemRead("./resources/test/keys/config-public-key.pem"),
+		box.PemRead("./resources/test/keys/master-private-key.pem"))
 
 	plaintext, err := crypto.Decrypt("ENC[NACL,fB7RSmpONiUGzaHtd8URiTSKqfBhor6BsJLSQErHH9NSgLTnxNLF60YS8ZT2IQ==]")
 	assert.Nil(t, err)
@@ -21,13 +23,13 @@ func TestKeyDecryptionStrategy(t *testing.T) {
 }
 
 func TestKeyEncryptionStrategy(t *testing.T) {
-	encryption := newKeyEncryptionStrategy(
-		pemRead("./resources/test/keys/master-public-key.pem"),
-		pemRead("./resources/test/keys/config-private-key.pem"))
+	encryption := NewKeyEncryptionStrategy(
+		box.PemRead("./resources/test/keys/master-public-key.pem"),
+		box.PemRead("./resources/test/keys/config-private-key.pem"))
 
-	decryption := newKeyDecryptionStrategy(
-		pemRead("./resources/test/keys/config-public-key.pem"),
-		pemRead("./resources/test/keys/master-private-key.pem"))
+	decryption := NewKeyDecryptionStrategy(
+		box.PemRead("./resources/test/keys/config-public-key.pem"),
+		box.PemRead("./resources/test/keys/master-private-key.pem"))
 
 	envelope, err := encryption.Encrypt([]byte("secret"))
 	assert.Nil(t, err)
@@ -38,9 +40,9 @@ func TestKeyEncryptionStrategy(t *testing.T) {
 }
 
 func newTestDecryptionStrategy(configKey string, masterKey string) DecryptionStrategy {
-	composite := newCompositeDecryptionStrategy()
-	composite.Add("KMS", newKmsDecryptionStrategy(newMockKmsClient()))
-	composite.Add("NACL", newKeyDecryptionStrategy(pemRead(configKey), pemRead(masterKey)))
+	composite := NewCompositeDecryptionStrategy()
+	composite.Add("KMS", kms.NewKmsDecryptionStrategy(kms.NewMockKmsClient()))
+	composite.Add("NACL", NewKeyDecryptionStrategy(box.PemRead(configKey), box.PemRead(masterKey)))
 	return composite
 }
 
@@ -92,7 +94,7 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	// Start secretary daemon
 	handler := decryptEndpointHandler(marathon.URL,
-		pemRead("./resources/test/keys/master-private-key.pem"),
+		box.PemRead("./resources/test/keys/master-private-key.pem"),
 		newTestDecryptionStrategy(
 			"./resources/test/keys/config-public-key.pem",
 			"./resources/test/keys/master-private-key.pem"))
@@ -109,7 +111,7 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	defer daemon.Close()
 
-	deployPrivateKey, err := pemDecode("8Cw5ysGd14dRObahAX/MtPrkmc7tOVj6OX5lM8HxerI=")
+	deployPrivateKey, err := box.PemDecode("8Cw5ysGd14dRObahAX/MtPrkmc7tOVj6OX5lM8HxerI=")
 	assert.Nil(t, err)
 
 	appID, appVersion, taskID := "/demo/webapp", "2015-12-04T12:25:08.426Z", "demo_webapp.0f810e10-9a82-11e5-94c7-6a515f434e2d"
@@ -119,11 +121,11 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	// Test decryption with both deploy and service keys
 	{
-		crypto := newDaemonDecryptionStrategy(daemon.URL,
+		crypto := NewDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, taskID,
-			pemRead("./resources/test/keys/master-public-key.pem"),
+			box.PemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
-			pemRead("./resources/test/keys/myservice-private-key.pem"))
+			box.PemRead("./resources/test/keys/myservice-private-key.pem"))
 
 		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.Nil(t, err)
@@ -136,11 +138,11 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	// Test decryption of a secret that is in a substring in the app config
 	{
-		crypto := newDaemonDecryptionStrategy(daemon.URL,
+		crypto := NewDaemonDecryptionStrategy(daemon.URL,
 			"/demo/webapp3", appVersion, taskID,
-			pemRead("./resources/test/keys/master-public-key.pem"),
+			box.PemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
-			pemRead("./resources/test/keys/myservice-private-key.pem"))
+			box.PemRead("./resources/test/keys/myservice-private-key.pem"))
 
 		plaintext, err := crypto.Decrypt(encryptedSecret)
 		fmt.Println(err)
@@ -152,11 +154,11 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 	{
 		encryptedKey := "ENC[NACL,egFSuFDkZxsmv9w7bWyZyxCBQQeykctG2H6UTiK7EHRdQI3E3NsZBP84Gqy8c5kh8BYErki6F0eqKAxd3u/QcOuMD17YgqTGiE/PMlO75yCuBzCnZNW7Y4b5Ww03v6uo1Fr/ew==]"
 
-		crypto := newDaemonDecryptionStrategy(daemon.URL,
+		crypto := NewDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, taskID,
-			pemRead("./resources/test/keys/master-public-key.pem"),
+			box.PemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
-			pemRead("./resources/test/keys/myservice-private-key.pem"))
+			box.PemRead("./resources/test/keys/myservice-private-key.pem"))
 
 		plaintext, err := crypto.Decrypt(encryptedKey)
 		assert.Nil(t, err)
@@ -165,9 +167,9 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	// Test without a service key
 	{
-		crypto := newDaemonDecryptionStrategy(daemon.URL,
+		crypto := NewDaemonDecryptionStrategy(daemon.URL,
 			"/demo/webapp2", appVersion, taskID,
-			pemRead("./resources/test/keys/master-public-key.pem"),
+			box.PemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey, nil)
 
 		plaintext, err := crypto.Decrypt(encryptedSecret)
@@ -177,9 +179,9 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	// Test with a secret that's correct but not part of config
 	{
-		crypto := newDaemonDecryptionStrategy(daemon.URL,
+		crypto := NewDaemonDecryptionStrategy(daemon.URL,
 			"/demo/webapp2", appVersion, taskID,
-			pemRead("./resources/test/keys/master-public-key.pem"),
+			box.PemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey, nil)
 
 		plaintext, err := crypto.Decrypt("ENC[NACL,Gk0NEy/PBF/949bR/lht1nsI09wYKkY0JOIjW9NFZFG6NTasF00OSWDRA1jA9eRjSR2/0xVCMEKoTou1PGcHSOmvFJGa71GScsI04nan/ZL2c9oeAt//mavWJlOuRokq1grdc3RVk0pwpFnzdLd2gaQW]")
@@ -190,11 +192,11 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	// Test decryption with bad deploy key
 	{
-		crypto := newDaemonDecryptionStrategy(daemon.URL,
+		crypto := NewDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, taskID,
-			pemRead("./resources/test/keys/master-public-key.pem"),
-			pemRead("./resources/test/keys/bad-private-key.pem"),
-			pemRead("./resources/test/keys/myservice-private-key.pem"))
+			box.PemRead("./resources/test/keys/master-public-key.pem"),
+			box.PemRead("./resources/test/keys/bad-private-key.pem"),
+			box.PemRead("./resources/test/keys/myservice-private-key.pem"))
 
 		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
@@ -204,11 +206,11 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	// Test decryption with bad service key
 	{
-		crypto := newDaemonDecryptionStrategy(daemon.URL,
+		crypto := NewDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, taskID,
-			pemRead("./resources/test/keys/master-public-key.pem"),
+			box.PemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
-			pemRead("./resources/test/keys/bad-private-key.pem"))
+			box.PemRead("./resources/test/keys/bad-private-key.pem"))
 
 		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
@@ -218,9 +220,9 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	// Test with a bad master key
 	{
-		crypto := newDaemonDecryptionStrategy(daemon.URL,
+		crypto := NewDaemonDecryptionStrategy(daemon.URL,
 			"/demo/webapp", appVersion, taskID,
-			pemRead("./resources/test/keys/bad-public-key.pem"),
+			box.PemRead("./resources/test/keys/bad-public-key.pem"),
 			deployPrivateKey, nil)
 
 		plaintext, err := crypto.Decrypt(encryptedSecret)
@@ -231,11 +233,11 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	// Test with a bad service key
 	{
-		crypto := newDaemonDecryptionStrategy(daemon.URL,
+		crypto := NewDaemonDecryptionStrategy(daemon.URL,
 			appID, badAppVersion, badTaskID,
-			pemRead("./resources/test/keys/master-public-key.pem"),
+			box.PemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
-			pemRead("./resources/test/keys/myservice-private-key.pem"))
+			box.PemRead("./resources/test/keys/myservice-private-key.pem"))
 
 		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
@@ -245,11 +247,11 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	// Test with a appVersion and taskId mismatch
 	{
-		crypto := newDaemonDecryptionStrategy(daemon.URL,
+		crypto := NewDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, badTaskID,
-			pemRead("./resources/test/keys/master-public-key.pem"),
+			box.PemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
-			pemRead("./resources/test/keys/myservice-private-key.pem"))
+			box.PemRead("./resources/test/keys/myservice-private-key.pem"))
 
 		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
@@ -259,17 +261,17 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	// Test with a bad config public key
 	handler = decryptEndpointHandler(marathon.URL,
-		pemRead("./resources/test/keys/master-private-key.pem"),
+		box.PemRead("./resources/test/keys/master-private-key.pem"),
 		newTestDecryptionStrategy(
 			"./resources/test/keys/bad-public-key.pem",
 			"./resources/test/keys/master-private-key.pem"))
 
 	{
-		crypto := newDaemonDecryptionStrategy(daemon.URL,
+		crypto := NewDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, taskID,
-			pemRead("./resources/test/keys/master-public-key.pem"),
+			box.PemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
-			pemRead("./resources/test/keys/myservice-private-key.pem"))
+			box.PemRead("./resources/test/keys/myservice-private-key.pem"))
 
 		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
@@ -279,17 +281,17 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	// Test with a bad master private key
 	handler = decryptEndpointHandler(marathon.URL,
-		pemRead("./resources/test/keys/bad-private-key.pem"),
+		box.PemRead("./resources/test/keys/bad-private-key.pem"),
 		newTestDecryptionStrategy(
 			"./resources/test/keys/config-public-key.pem",
 			"./resources/test/keys/master-private-key.pem"))
 
 	{
-		crypto := newDaemonDecryptionStrategy(daemon.URL,
+		crypto := NewDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, taskID,
-			pemRead("./resources/test/keys/master-public-key.pem"),
+			box.PemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
-			pemRead("./resources/test/keys/myservice-private-key.pem"))
+			box.PemRead("./resources/test/keys/myservice-private-key.pem"))
 
 		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
@@ -299,21 +301,48 @@ func TestDaemonDecryptionStrategy(t *testing.T) {
 
 	// Test with a bad master private key
 	handler = decryptEndpointHandler(marathon.URL,
-		pemRead("./resources/test/keys/master-private-key.pem"),
+		box.PemRead("./resources/test/keys/master-private-key.pem"),
 		newTestDecryptionStrategy(
 			"./resources/test/keys/config-public-key.pem",
 			"./resources/test/keys/bad-private-key.pem"))
 
 	{
-		crypto := newDaemonDecryptionStrategy(daemon.URL,
+		crypto := NewDaemonDecryptionStrategy(daemon.URL,
 			appID, appVersion, taskID,
-			pemRead("./resources/test/keys/master-public-key.pem"),
+			box.PemRead("./resources/test/keys/master-public-key.pem"),
 			deployPrivateKey,
-			pemRead("./resources/test/keys/myservice-private-key.pem"))
+			box.PemRead("./resources/test/keys/myservice-private-key.pem"))
 
 		plaintext, err := crypto.Decrypt(encryptedSecret)
 		assert.NotNil(t, err)
 		assert.Nil(t, plaintext)
 		assert.Equal(t, "Failed to decrypt using daemon (HTTP 400 Error: Failed to decrypt plaintext secret, incorrect config or master key? (Failed to decrypt (incorrect keys?)))", err.Error())
+	}
+}
+
+func TestCompositeDecryptionStrategy(t *testing.T) {
+	composite := NewCompositeDecryptionStrategy()
+	composite.Add("KMS", kms.NewKmsDecryptionStrategy(kms.NewMockKmsClient()))
+	composite.Add("NACL", NewKeyDecryptionStrategy(
+		box.PemRead("./resources/test/keys/config-public-key.pem"),
+		box.PemRead("./resources/test/keys/master-private-key.pem")))
+
+	{
+		plaintext, err := composite.Decrypt("ENC[KMS,RP+BAwEBCmttc1BheWxvYWQB/4IAAQMBEEVuY3J5cHRlZERhdGFLZXkBCgABBU5vbmNlAf+EAAEHTWVzc2FnZQEKAAAAGf+DAQEBCVsyNF11aW50OAH/hAABBgEwAABw/4IBLFExUHVXdEIxRTdGMXNMcHZmQkdqTCtadUgrZlNDT3ZNRHFUeVJRRTRHVGc9ARgr/502fv/vQP+S/5H/k//gOf/gWDNh/53/3in/uf/L/5r/mTxbARYoewY+qb+skiPKwGUnT/2GADtui80vAA==]")
+		assert.Nil(t, err)
+		assert.Equal(t, "secret", string(plaintext))
+	}
+
+	{
+		plaintext, err := composite.Decrypt("ENC[NACL,fB7RSmpONiUGzaHtd8URiTSKqfBhor6BsJLSQErHH9NSgLTnxNLF60YS8ZT2IQ==]")
+		assert.Nil(t, err)
+		assert.Equal(t, "secret", string(plaintext))
+	}
+
+	{
+		plaintext, err := composite.Decrypt("ENC[ACL,fB7RSmpONiUGzaHtd8URiTSKqfBhor6BsJLSQErHH9NSgLTnxNLF60YS8ZT2IQ==]")
+		assert.Nil(t, plaintext)
+		assert.NotNil(t, err)
+		assert.Equal(t, "Not configured for decrypting ENC[,..] values", err.Error())
 	}
 }

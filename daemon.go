@@ -7,6 +7,9 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/meltwater/secretary/box"
+	"github.com/meltwater/secretary/util"
 )
 
 // DaemonRequest is the request expected by the /v1/decrypt endpoint
@@ -34,14 +37,14 @@ func errorResponse(w http.ResponseWriter, r *http.Request, err interface{}, stat
 
 func decryptRequest(app *MarathonApp, masterKey *[32]byte, serviceEnvelope string) (*DaemonRequest, error) {
 	// Authenticate with deploy key and decrypt
-	body, err := decryptEnvelope(app.DeployKey, masterKey, serviceEnvelope)
+	body, err := box.DecryptEnvelope(app.DeployKey, masterKey, serviceEnvelope)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to authenticate/decrypt request using deploy and master key (incorrect master key or hacking attempt? (%s))", err)
 	}
 
 	// Authenticate with optional service key and decrypt
 	if app.ServiceKey != nil {
-		body, err = decryptEnvelope(app.ServiceKey, masterKey, string(body))
+		body, err = box.DecryptEnvelope(app.ServiceKey, masterKey, string(body))
 		if err != nil {
 			return nil, fmt.Errorf("Failed to authenticate/decrypt request using service and master key (incorrect master key or hacking attempt? (%s))", err)
 		}
@@ -65,7 +68,7 @@ func decryptRequest(app *MarathonApp, masterKey *[32]byte, serviceEnvelope strin
 func verifyAuthorization(app *MarathonApp, request *DaemonRequest) (bool, error) {
 	// Verify that encrypted string is present in app config
 	for _, value := range app.Env {
-		if strings.Contains(stripWhitespace(value), request.RequestedSecret) {
+		if strings.Contains(util.StripWhitespace(value), request.RequestedSecret) {
 			return true, nil
 		}
 	}
@@ -74,7 +77,7 @@ func verifyAuthorization(app *MarathonApp, request *DaemonRequest) (bool, error)
 }
 
 func encryptResponse(app *MarathonApp, masterKey *[32]byte, plaintext []byte) ([]byte, error) {
-	message := DaemonResponse{PlaintextSecret: encode(plaintext)}
+	message := DaemonResponse{PlaintextSecret: box.Encode(plaintext)}
 	encoded, err := json.Marshal(message)
 	if err != nil {
 		return nil, err
@@ -83,14 +86,14 @@ func encryptResponse(app *MarathonApp, masterKey *[32]byte, plaintext []byte) ([
 	// Encrypt with service key
 	response := string(encoded)
 	if app.ServiceKey != nil {
-		response, err = encryptEnvelope(app.ServiceKey, masterKey, []byte(response))
+		response, err = box.EncryptEnvelope(app.ServiceKey, masterKey, []byte(response))
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// Encrypt with deploy key
-	encrypted, err := encryptEnvelope(app.DeployKey, masterKey, []byte(response))
+	encrypted, err := box.EncryptEnvelope(app.DeployKey, masterKey, []byte(response))
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +118,7 @@ func decryptEndpointHandler(marathonURL string, masterKey *[32]byte, strategy De
 		appVersion := r.Form.Get("appversion")
 		taskID := r.Form.Get("taskid")
 		serviceEnvelope := r.Form.Get("envelope")
-		log.Printf("Received request from %s (%s, %s) at %s with envelope %s", appID, taskID, appVersion, r.RemoteAddr, ellipsis(serviceEnvelope, 64))
+		log.Printf("Received request from %s (%s, %s) at %s with envelope %s", appID, taskID, appVersion, r.RemoteAddr, util.Ellipsis(serviceEnvelope, 64))
 
 		if appID == "" || taskID == "" || appVersion == "" || serviceEnvelope == "" {
 			errorResponse(w, r, errors.New("Expected parameters {appid, appversion, taskid, envelope}"), http.StatusBadRequest)

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/meltwater/secretary/box"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -62,8 +63,8 @@ func TestParseApplicationVersion(t *testing.T) {
 	assert.Equal(t, appID, app.ID)
 	assert.Equal(t, appVersion, app.Version)
 	assert.Equal(t, taskID, app.TaskID)
-	assert.Equal(t, "omO6DSEw/mZDG9NuhyEC4uYbgwwqEivOuX0EqX9+Ql0=", encode(app.DeployKey[:]))
-	assert.Equal(t, "kVOhhw2wAJuAofxO7h4EM0xboxGAwnsq9J6fluFY5CQ=", encode(app.ServiceKey[:]))
+	assert.Equal(t, "omO6DSEw/mZDG9NuhyEC4uYbgwwqEivOuX0EqX9+Ql0=", box.Encode(app.DeployKey[:]))
+	assert.Equal(t, "kVOhhw2wAJuAofxO7h4EM0xboxGAwnsq9J6fluFY5CQ=", box.Encode(app.ServiceKey[:]))
 
 	// Verify that appID is checked
 	app, err = parseApplicationVersion("/demo/webap1", "2015-12-04T12:25:08.426Z", taskID, response)
@@ -100,7 +101,7 @@ func TestParseApplicationWithoutServiceKey(t *testing.T) {
 	assert.Equal(t, appVersion, app.Version)
 	assert.Equal(t, taskID, app.TaskID)
 
-	assert.Equal(t, "omO6DSEw/mZDG9NuhyEC4uYbgwwqEivOuX0EqX9+Ql0=", encode(app.DeployKey[:]))
+	assert.Equal(t, "omO6DSEw/mZDG9NuhyEC4uYbgwwqEivOuX0EqX9+Ql0=", box.Encode(app.DeployKey[:]))
 	assert.Nil(t, app.ServiceKey)
 }
 
@@ -140,7 +141,7 @@ func TestGetMarathonApp(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "/demo/webapp", app.ID)
 	assert.Equal(t, "2015-12-04T12:25:08.426Z", app.Version)
-	assert.Equal(t, "omO6DSEw/mZDG9NuhyEC4uYbgwwqEivOuX0EqX9+Ql0=", encode(app.DeployKey[:]))
-	assert.Equal(t, "kVOhhw2wAJuAofxO7h4EM0xboxGAwnsq9J6fluFY5CQ=", encode(app.ServiceKey[:]))
+	assert.Equal(t, "omO6DSEw/mZDG9NuhyEC4uYbgwwqEivOuX0EqX9+Ql0=", box.Encode(app.DeployKey[:]))
+	assert.Equal(t, "kVOhhw2wAJuAofxO7h4EM0xboxGAwnsq9J6fluFY5CQ=", box.Encode(app.ServiceKey[:]))
 	assert.Equal(t, "ENC[NACL,", app.Env["DATABASE_PASSWORD"][0:9])
 }

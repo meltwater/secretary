@@ -1,4 +1,4 @@
-package main
+package box
 
 import (
 	"crypto/rand"
@@ -12,22 +12,22 @@ const privateKey = `Q1PuWtB1E7F1sLpvfBGjL+ZuH+fSCOvMDqTyRQE4GTg=`
 const publicKey = `UNlPHu0seDm6He2clMI5QHSaRGrXBdsMiWsamIF85l8=`
 
 func TestAsKey(t *testing.T) {
-	buf, err := decode(privateKey)
+	buf, err := Decode(privateKey)
 	assert.Nil(t, err)
 
-	key, err := asKey(buf)
+	key, err := AsKey(buf)
 	assert.Nil(t, err)
 	assert.Equal(t, buf, key[:])
 
-	_, err = asKey([]byte("abc"))
+	_, err = AsKey([]byte("abc"))
 	assert.NotNil(t, err)
 
-	_, err = asKey(nil)
+	_, err = AsKey(nil)
 	assert.NotNil(t, err)
 }
 
 func TestAsNonce(t *testing.T) {
-	buf, err := decode(`WLWwVUGVX7tTJd84mRioKQflzoTUWMj+PMtrO+c2oxEbnJba3ILzlyqhBKbd2Q==`)
+	buf, err := Decode(`WLWwVUGVX7tTJd84mRioKQflzoTUWMj+PMtrO+c2oxEbnJba3ILzlyqhBKbd2Q==`)
 	assert.Nil(t, err)
 
 	nonce, err := asNonce(buf[0:24])
@@ -42,8 +42,8 @@ func TestAsNonce(t *testing.T) {
 }
 
 func TestFindKey(t *testing.T) {
-	expected := encode(pemRead("./resources/test/keys/config-public-key.pem")[:])
-	assert.Equal(t, expected, encode(findKey("", "RANDOM_ENVVAR_THAT_DOESNT_EXIST", "./resources/test/keys/config-public-key.pem")[:]))
+	expected := Encode(pemRead("./resources/test/keys/config-public-key.pem")[:])
+	assert.Equal(t, expected, Encode(findKey("", "RANDOM_ENVVAR_THAT_DOESNT_EXIST", "./resources/test/keys/config-public-key.pem")[:]))
 	assert.Nil(t, findKey("", "RANDOM_ENVVAR_THAT_DOESNT_EXIST", "./resources/test/keys/nonexist-public-key.pem"))
 }
 

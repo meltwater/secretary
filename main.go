@@ -5,6 +5,9 @@ import (
 	"os"
 
 	"github.com/go-errors/errors"
+	"github.com/meltwater/secretary/box"
+	"github.com/meltwater/secretary/kms"
+	"github.com/meltwater/secretary/util"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +26,7 @@ func main() {
 				}
 
 				for _, name := range args {
-					genkey(fmt.Sprintf("%s/%s-public-key.pem", keyPath, name), fmt.Sprintf("%s/%s-private-key.pem", keyPath, name))
+					box.Genkey(fmt.Sprintf("%s/%s-public-key.pem", keyPath, name), fmt.Sprintf("%s/%s-private-key.pem", keyPath, name))
 				}
 			},
 		}
@@ -43,11 +46,11 @@ func main() {
 				var crypto EncryptionStrategy
 
 				if len(awsKmsID) > 0 {
-					crypto = newKmsEncryptionStrategy(newKmsClient(), awsKmsID)
+					crypto = kms.NewKmsEncryptionStrategy(kms.NewKmsClient(), awsKmsID)
 				} else {
-					publicKey := requireKey("config public", publicKeyFile, "PUBLIC_KEY", "./keys/master-public-key.pem")
-					privateKey := requireKey("deploy private", privateKeyFile, "PRIVATE_KEY", "./keys/config-private-key.pem")
-					crypto = newKeyEncryptionStrategy(publicKey, privateKey)
+					publicKey := box.RequireKey("config public", publicKeyFile, "PUBLIC_KEY", "./keys/master-public-key.pem")
+					privateKey := box.RequireKey("deploy private", privateKeyFile, "PRIVATE_KEY", "./keys/config-private-key.pem")
+					crypto = NewKeyEncryptionStrategy(publicKey, privateKey)
 				}
 
 				encryptCommand(os.Stdin, os.Stdout, crypto, wrapLines)
@@ -73,21 +76,21 @@ func main() {
 				var crypto DecryptionStrategy
 
 				if len(secretaryURL) > 0 {
-					deployKey := requireKey("deploy private", deployKeyFile, "DEPLOY_PRIVATE_KEY", "./keys/master-private-key.pem")
-					masterKey := requireKey("master public", masterKeyFile, "MASTER_PUBLIC_KEY", "./keys/master-public-key.pem")
-					serviceKey := findKey(serviceKeyFile, "SERVICE_PRIVATE_KEY")
-					crypto = newDaemonDecryptionStrategy(
+					deployKey := box.RequireKey("deploy private", deployKeyFile, "DEPLOY_PRIVATE_KEY", "./keys/master-private-key.pem")
+					masterKey := box.RequireKey("master public", masterKeyFile, "MASTER_PUBLIC_KEY", "./keys/master-public-key.pem")
+					serviceKey := box.FindKey(serviceKeyFile, "SERVICE_PRIVATE_KEY")
+					crypto = NewDaemonDecryptionStrategy(
 						secretaryURL, appID, appVersion, taskID,
 						masterKey, deployKey, serviceKey)
 				} else {
 					// Send ENC[KMS,..] and ENC[NACL,...] to separate decryptors
-					composite := newCompositeDecryptionStrategy()
-					composite.Add("KMS", newKmsDecryptionStrategy(newKmsClient()))
+					composite := NewCompositeDecryptionStrategy()
+					composite.Add("KMS", kms.NewKmsDecryptionStrategy(kms.NewKmsClient()))
 
-					deployKey := findKey("deploy private", deployKeyFile, "DEPLOY_PRIVATE_KEY", "./keys/master-private-key.pem")
-					configKey := findKey("config public", configKeyFile, "CONFIG_PUBLIC_KEY", "./keys/config-public-key.pem")
+					deployKey := box.FindKey("deploy private", deployKeyFile, "DEPLOY_PRIVATE_KEY", "./keys/master-private-key.pem")
+					configKey := box.FindKey("config public", configKeyFile, "CONFIG_PUBLIC_KEY", "./keys/config-public-key.pem")
 					if deployKey != nil && configKey != nil {
-						composite.Add("NACL", newKeyDecryptionStrategy(configKey, deployKey))
+						composite.Add("NACL", NewKeyDecryptionStrategy(configKey, deployKey))
 					}
 
 					crypto = composite
@@ -132,14 +135,14 @@ func main() {
 			Short: "Start the REST service that decrypts secrets",
 			Run: func(cmd *cobra.Command, args []string) {
 				// Send ENC[KMS,..] and ENC[NACL,...] to separate decryptors
-				composite := newCompositeDecryptionStrategy()
-				composite.Add("KMS", newKmsDecryptionStrategy(newKmsClient()))
+				composite := NewCompositeDecryptionStrategy()
+				composite.Add("KMS", kms.NewKmsDecryptionStrategy(kms.NewKmsClient()))
 
 				// NaCL support is optional if configKey isn't given. masterKey is needed to authenticate calling containers
-				configKey := findKey("config public", configKeyFile, "CONFIG_PUBLIC_KEY", "./keys/config-public-key.pem")
-				masterKey := requireKey("master private", masterKeyFile, "MASTER_PRIVATE_KEY", "./keys/master-private-key.pem")
+				configKey := box.FindKey("config public", configKeyFile, "CONFIG_PUBLIC_KEY", "./keys/config-public-key.pem")
+				masterKey := box.RequireKey("master private", masterKeyFile, "MASTER_PRIVATE_KEY", "./keys/master-private-key.pem")
 				if configKey != nil && masterKey != nil {
-					composite.Add("NACL", newKeyDecryptionStrategy(configKey, masterKey))
+					composite.Add("NACL", NewKeyDecryptionStrategy(configKey, masterKey))
 				}
 
 				listenAddress := fmt.Sprintf("%s:%d", daemonIP, daemonPort)
@@ -148,7 +151,7 @@ func main() {
 		}
 
 		cmdDaemon.Flags().StringVarP(&marathonURL, "marathon-url", "",
-			defaults(os.Getenv("MARATHON_URL"), "http://localhost:8080"), "URL of Marathon")
+			util.Defaults(os.Getenv("MARATHON_URL"), "http://localhost:8080"), "URL of Marathon")
 		cmdDaemon.Flags().StringVarP(&configKeyFile, "config-key", "", "", "Config public key file")
 		cmdDaemon.Flags().StringVarP(&masterKeyFile, "master-key", "", "", "Master private key file")
 		cmdDaemon.Flags().StringVarP(&tlsCertFile, "tls-cert-file", "", os.Getenv("TLS_CERT_FILE"), "TLS cert file")
@@ -163,7 +166,7 @@ func main() {
 	defer func() {
 		if err := recover(); err != nil {
 			switch err.(type) {
-			case *CommandError:
+			case *util.CommandError:
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 			default:
 				fmt.Fprintf(os.Stderr, "%s\n", errors.Wrap(err, 2).ErrorStack())

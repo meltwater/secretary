@@ -1,4 +1,4 @@
-package main
+package kms
 
 import (
 	"bytes"
@@ -9,12 +9,15 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/kms"
 
 	"golang.org/x/crypto/nacl/secretbox"
+
+	"github.com/meltwater/secretary/box"
+	"github.com/meltwater/secretary/util"
 )
 
 type kmsPayload struct {
@@ -58,14 +61,14 @@ func (k *KmsClientImpl) CallWithRetry(f KmsFunction) error {
 
 	// Attempt to use EC2 meta-data service in case of MissingRegion error
 	if err == aws.ErrMissingRegion {
-		body, err := httpGet("http://169.254.169.254/2016-06-30/dynamic/instance-identity/document")
+		body, err := util.HttpGet("http://169.254.169.254/2016-06-30/dynamic/instance-identity/document")
 		if err == nil {
 			var doc ec2metadata.EC2InstanceIdentityDocument
 			err := json.Unmarshal(body, &doc)
 
 			if err == nil {
 				sess, err := session.NewSessionWithOptions(session.Options{
-					Config: aws.Config{Region: aws.String(doc.Region)},
+					Config:            aws.Config{Region: aws.String(doc.Region)},
 					SharedConfigState: session.SharedConfigEnable,
 				})
 
@@ -100,7 +103,7 @@ func (k *KmsClientImpl) GenerateDataKey(keyID string) (*[32]byte, []byte, error)
 		return nil, nil, err
 	}
 
-	dataKey, err := asKey(response.Plaintext)
+	dataKey, err := box.AsKey(response.Plaintext)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -124,10 +127,10 @@ func (k *KmsClientImpl) Decrypt(data []byte) (*[32]byte, error) {
 		return nil, err
 	}
 
-	return asKey(response.Plaintext)
+	return box.AsKey(response.Plaintext)
 }
 
-func newKmsClient() *KmsClientImpl {
+func NewKmsClient() *KmsClientImpl {
 	return &KmsClientImpl{}
 }
 
@@ -164,10 +167,10 @@ func (k *KmsEncryptionStrategy) Encrypt(plaintext []byte) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("ENC[KMS,%s]", encode(buffer.Bytes())), nil
+	return fmt.Sprintf("ENC[KMS,%s]", box.Encode(buffer.Bytes())), nil
 }
 
-func newKmsEncryptionStrategy(client KmsClient, keyID string) *KmsEncryptionStrategy {
+func NewKmsEncryptionStrategy(client KmsClient, keyID string) *KmsEncryptionStrategy {
 	return &KmsEncryptionStrategy{Client: client, KeyID: keyID}
 }
 
@@ -179,7 +182,7 @@ type KmsDecryptionStrategy struct {
 // Decrypt a transport envelope
 func (k *KmsDecryptionStrategy) Decrypt(envelope string) ([]byte, error) {
 	// Extract payload
-	encrypted, err := decode(envelope[8 : len(envelope)-1])
+	encrypted, err := box.Decode(envelope[8 : len(envelope)-1])
 	if err != nil {
 		return nil, err
 	}
@@ -204,6 +207,6 @@ func (k *KmsDecryptionStrategy) Decrypt(envelope string) ([]byte, error) {
 	return plaintext, nil
 }
 
-func newKmsDecryptionStrategy(client KmsClient) *KmsDecryptionStrategy {
+func NewKmsDecryptionStrategy(client KmsClient) *KmsDecryptionStrategy {
 	return &KmsDecryptionStrategy{Client: client}
 }

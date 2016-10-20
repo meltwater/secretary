@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/meltwater/secretary/util"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,7 +28,7 @@ func TestDaemonStatus(t *testing.T) {
 
 	defer daemon.Close()
 
-	response, err := httpGet(daemon.URL + "/v1/status")
+	response, err := util.HttpGet(daemon.URL + "/v1/status")
 	assert.Nil(t, err)
 
 	var parsedResponse DaemonStatusResponse
@@ -66,7 +67,7 @@ func TestTLSDaemonStatus(t *testing.T) {
 
 	var parsedResponse DaemonStatusResponse
 
-	respBody, err := httpReadBody(response)
+	respBody, err := util.HttpReadBody(response)
 
 	err = json.Unmarshal(respBody, &parsedResponse)
 	assert.Nil(t, err)

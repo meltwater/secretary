@@ -1,4 +1,4 @@
-package main
+package util
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ type CommandError struct {
 func (e *CommandError) Error() string { return e.msg }
 
 // Panics with a message if the given error isn't nil
-func check(err error, a ...interface{}) {
+func Check(err error, a ...interface{}) {
 	if err != nil {
 		var msg string
 		if len(a) > 0 {
@@ -32,14 +32,14 @@ func check(err error, a ...interface{}) {
 }
 
 // Panics with a message if the given condition isn't true
-func assertThat(condition bool, msg string, a ...interface{}) {
+func AssertThat(condition bool, msg string, a ...interface{}) {
 	if !condition {
 		panic(&CommandError{fmt.Sprintf(msg, a...), nil})
 	}
 }
 
 // Min value
-func min(a int, b int) int {
+func Min(a int, b int) int {
 	if a < b {
 		return a
 	}
@@ -47,7 +47,7 @@ func min(a int, b int) int {
 	return b
 }
 
-func max(a int, b int) int {
+func Max(a int, b int) int {
 	if a > b {
 		return a
 	}
@@ -55,16 +55,16 @@ func max(a int, b int) int {
 	return b
 }
 
-func ellipsis(input string, maxLength int) string {
+func Ellipsis(input string, maxLength int) string {
 	trimmed := strings.TrimSpace(input)
 	if len(trimmed) > maxLength {
-		return fmt.Sprintf("%s...", strings.TrimSpace(trimmed[0:max(maxLength-3, 0)]))
+		return fmt.Sprintf("%s...", strings.TrimSpace(trimmed[0:Max(maxLength-3, 0)]))
 	}
 
 	return trimmed
 }
 
-func defaults(a ...string) string {
+func Defaults(a ...string) string {
 	for _, item := range a {
 		if len(item) > 0 {
 			return item
@@ -75,7 +75,7 @@ func defaults(a ...string) string {
 }
 
 // Strip whitespace from string
-func stripWhitespace(a string) string {
+func StripWhitespace(a string) string {
 	return strings.Map(func(r rune) rune {
 		if unicode.IsSpace(r) {
 			return -1
@@ -85,7 +85,7 @@ func stripWhitespace(a string) string {
 	}, a)
 }
 
-func httpReadBody(response *http.Response) ([]byte, error) {
+func HttpReadBody(response *http.Response) ([]byte, error) {
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
@@ -93,26 +93,26 @@ func httpReadBody(response *http.Response) ([]byte, error) {
 	}
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, fmt.Errorf("HTTP %d Error: %s", response.StatusCode, ellipsis(string(body), 256))
+		return nil, fmt.Errorf("HTTP %d Error: %s", response.StatusCode, Ellipsis(string(body), 256))
 	}
 
 	return body, nil
 }
 
-func httpPostForm(url string, values url.Values) ([]byte, error) {
+func HttpPostForm(url string, values url.Values) ([]byte, error) {
 	response, err := http.PostForm(url, values)
 	if err != nil {
 		return nil, err
 	}
 
-	return httpReadBody(response)
+	return HttpReadBody(response)
 }
 
-func httpGet(url string) ([]byte, error) {
+func HttpGet(url string) ([]byte, error) {
 	response, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
 
-	return httpReadBody(response)
+	return HttpReadBody(response)
 }
