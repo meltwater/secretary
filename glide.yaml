@@ -10,7 +10,7 @@ import:
   - nacl/box
   - nacl/secretbox
 - package: github.com/aws/aws-sdk-go
-  version: v1.4.14
+  version: v1.6.18
   subpackages:
   - aws/session
   - service/kms

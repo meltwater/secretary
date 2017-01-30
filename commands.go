@@ -64,7 +64,7 @@ func decryptEnvironment(input []string, output io.Writer, crypto DecryptionStrat
 		if len(envelopes) > 0 {
 			if !shellIdentifierRegexp.Match([]byte(key)) {
 				ok = false
-				err = fmt.Errorf("The env var '%s' is not a valid shell script identifier. Only alphanumeric characters and underscores are supported, starting with an alphabetic or underscore character.", key)
+				err = fmt.Errorf("the env var '%s' is not a valid shell script identifier. Only alphanumeric characters and underscores are supported, starting with an alphabetic or underscore character", key)
 				fmt.Fprintf(os.Stderr, "%s: %s\n", key, err)
 			}
 

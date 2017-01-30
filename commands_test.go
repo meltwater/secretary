@@ -79,7 +79,7 @@ func TestDecryptEnvironmentCommand(t *testing.T) {
 		ok, err := decryptEnvironment(input, &output, crypto)
 
 		assert.False(t, ok)
-		assert.Equal(t, "The env var 'b.c' is not a valid shell script identifier. Only alphanumeric characters and underscores are supported, starting with an alphabetic or underscore character.", err.Error())
+		assert.Equal(t, "the env var 'b.c' is not a valid shell script identifier. Only alphanumeric characters and underscores are supported, starting with an alphabetic or underscore character", err.Error())
 	}
 }
 

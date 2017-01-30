@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/kms"
 
 	"golang.org/x/crypto/nacl/secretbox"
@@ -34,10 +34,10 @@ type KmsClientImpl struct {
 	Impl *kms.KMS
 }
 
-// A function that operates on the KMS service
+// KmsFunction is a lambda that operates on the KMS service
 type KmsFunction func(*kms.KMS) error
 
-// Executes a function with retry for MissingRegion errors
+// CallWithRetry executes a function with retry for MissingRegion errors
 func (k *KmsClientImpl) CallWithRetry(f KmsFunction) error {
 	// Lazy initialize the session
 	if k.Impl == nil {
@@ -65,7 +65,7 @@ func (k *KmsClientImpl) CallWithRetry(f KmsFunction) error {
 
 			if err == nil {
 				sess, err := session.NewSessionWithOptions(session.Options{
-					Config: aws.Config{Region: aws.String(doc.Region)},
+					Config:            aws.Config{Region: aws.String(doc.Region)},
 					SharedConfigState: session.SharedConfigEnable,
 				})
 
