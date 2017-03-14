@@ -8,8 +8,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var version = "undefined"
+
 func main() {
 	rootCmd := &cobra.Command{Use: "secretary"}
+
+	// Version command
+	{
+		cmdVersion := &cobra.Command{
+			Use:   "version",
+			Short: "prints the version of secretary",
+			Run: func(cmd *cobra.Command, args []string) {
+				fmt.Println(version)
+			},
+		}
+
+		rootCmd.AddCommand(cmdVersion)
+	}
 
 	// Key generation command
 	{
