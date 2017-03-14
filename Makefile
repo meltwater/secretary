@@ -1,4 +1,5 @@
 export GO15VENDOREXPERIMENT=1
+VERSION := $(shell git describe --tags)
 
 all: tools deps fmt build test lint
 
@@ -15,7 +16,8 @@ fmt:
 	go fmt ./...
 
 build:
-	 CGO_ENABLED=0 go build -o "secretary-`uname -s`-`uname -m`"
+	 CGO_ENABLED=0 go build -o "secretary-`uname -s`-`uname -m`" \
+	 -ldflags "-X main.version=${VERSION}"
 	 ln -sf "secretary-`uname -s`-`uname -m`" secretary
 
 test:
