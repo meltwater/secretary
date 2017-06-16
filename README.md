@@ -222,8 +222,9 @@ An runtime config automatically expanded by Lighter might look like
 ```
 
 ## Container Startup Sequence
-Docker images should embed the `secretary` executable. Call it at container startup to decrypt
-environment variables, before starting the actual service.
+Docker images should embed the `secretary` executable. Use it as an entrypoint
+with `secretary exec --". It will then decrypt all command line arguments and
+environment variables.
 
 *Dockerfile*
 ```
@@ -231,25 +232,9 @@ environment variables, before starting the actual service.
 ENV SECRETARY_VERSION x.y.z
 RUN curl -fsSLo /usr/bin/secretary "https://github.com/meltwater/secretary/releases/download/${SECRETARY_VERSION}/secretary-`uname -s`-`uname -m`" && \
     chmod +x /usr/bin/secretary
-```
 
-Container startup examples
-```
-#!/bin/sh
-set -e
-
-# Decrypt secrets
-if [ "$SERVICE_PUBLIC_KEY" != "" ]; then
-    SECRETS=$(secretary decrypt -e --service-key=/service/keys/service-private-key.pem)
-else
-    SECRETS=$(secretary decrypt -e)
-fi
-
-eval "$SECRETS"
-unset SECRETS
-
-# Start the service
-exec ...
+ENTRYPOINT ["/usr/bin/secretary", "exec", "--"]
+CMD ["/bin/echo", "ENC[NACL,XXXXXX==]"] # This can be replaced in Dockerfiles that inherit from this one
 ```
 
 The complete decryption sequence could be described as

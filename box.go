@@ -150,6 +150,29 @@ func genkey(publicKeyFile string, privateKeyFile string) {
 	pemWrite(privateKey, privateKeyFile, "NACL PRIVATE KEY", 0600)
 }
 
+func decryptEnvelopes(input string, decryptor DecryptionStrategy) (output string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			var ok bool
+			err, ok = r.(error)
+			if !ok {
+				err = fmt.Errorf("%v", r)
+			}
+		}
+	}()
+
+	repl := func(envelope string) string {
+		bytes, err := decryptor.Decrypt(envelope)
+		if err != nil {
+			panic(err)
+		}
+		return string(bytes)
+	}
+
+	output = envelopeRegexp.ReplaceAllStringFunc(input, repl)
+	return
+}
+
 func extractEnvelopes(payload string) []string {
 	return envelopeRegexp.FindAllString(payload, -1)
 }

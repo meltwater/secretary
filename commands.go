@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 )
@@ -85,4 +86,32 @@ func decryptEnvironment(input []string, output io.Writer, crypto DecryptionStrat
 	}
 
 	return ok, err
+}
+
+func createExecArgs(args []string, encryptedEnviron []string, crypto DecryptionStrategy) (cmd string, decryptedArgs []string, decryptedEnviron []string, err error) {
+
+	cmd = args[0]
+	decryptedArgs = make([]string, len(args))
+
+	decryptedArgs[0] = path.Base(cmd) // By unix convention argv[0] has to be set to basename of command
+	for i, arg := range args[1:] {
+		decryptedArg, subErr := decryptEnvelopes(arg, crypto)
+		if subErr != nil {
+			err = fmt.Errorf("Error while decrypting argument: %v", subErr)
+		}
+
+		decryptedArgs[i+1] = decryptedArg
+	}
+
+	decryptedEnviron = make([]string, len(encryptedEnviron))
+	for i, env := range encryptedEnviron {
+		decryptedEnv, subErr := decryptEnvelopes(env, crypto)
+		if subErr != nil {
+			err = fmt.Errorf("Error while decrypting environment variables: %v", subErr)
+		}
+
+		decryptedEnviron[i] = decryptedEnv
+	}
+
+	return
 }
