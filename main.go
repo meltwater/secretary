@@ -189,6 +189,9 @@ func main() {
 			},
 		}
 
+		// The usage template is here in order to give the usage text:
+		//     secretary exec [flags] -- cmd [args...]
+		// No immediately obvious way to accomplish that other than replacing the entire usage template.
 		cmdExec.SetUsageTemplate(`Usage:{{if .Runnable}}
   {{.UseLine}}{{if .HasFlags}} [flags]{{end}}{{end}}{{if .HasSubCommands}}
   {{ .CommandPath}} [command]{{end}} -- cmd [args...]{{if gt .Aliases 0}}
