@@ -116,7 +116,7 @@ func (noopDecryptionStrategyType) Decrypt(envelope string) ([]byte, error) {
 
 var NoopDecryptionStrategy DecryptionStrategy = noopDecryptionStrategyType{}
 
-func BenchmarkExtractEnvelopes(b *testing.B) {
+func BenchmarkDecryptEnvelopes(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		decryptEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/", NoopDecryptionStrategy)
 	}
