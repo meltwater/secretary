@@ -150,7 +150,7 @@ func genkey(publicKeyFile string, privateKeyFile string) {
 	pemWrite(privateKey, privateKeyFile, "NACL PRIVATE KEY", 0600)
 }
 
-func decryptEnvelopes(input string, decryptor DecryptionStrategy) (output string, err error) {
+func decryptEnvelopes(input string, crypto DecryptionStrategy) (output string, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			var ok bool
@@ -162,7 +162,7 @@ func decryptEnvelopes(input string, decryptor DecryptionStrategy) (output string
 	}()
 
 	repl := func(envelope string) string {
-		bytes, err := decryptor.Decrypt(envelope)
+		bytes, err := crypto.Decrypt(envelope)
 		if err != nil {
 			panic(err)
 		}
