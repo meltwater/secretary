@@ -121,3 +121,18 @@ func BenchmarkDecryptEnvelopes(b *testing.B) {
 		decryptEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/", NoopDecryptionStrategy)
 	}
 }
+
+func TestDecryptEnvelopes(t *testing.T) {
+	privkey, err := pemDecode(privateKey)
+	assert.Nil(t, err)
+
+	pubkey, err := pemDecode(publicKey)
+	assert.Nil(t, err)
+
+	envelope, err := encryptEnvelope(pubkey, privkey, []byte("secret"))
+	crypto := newKeyDecryptionStrategy(pubkey, privkey)
+
+	result, err := decryptEnvelopes("This is a "+envelope+" message", crypto)
+	assert.Nil(t, err)
+	assert.Equal(t, "This is a secret message", result)
+}
