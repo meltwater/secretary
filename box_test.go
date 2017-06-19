@@ -136,3 +136,22 @@ func TestDecryptEnvelopes(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "This is a secret message", result)
 }
+
+func TestDecryptEnvelopesStripsWhitespace(t *testing.T) {
+	privkey, err := pemDecode(privateKey)
+	assert.Nil(t, err)
+
+	pubkey, err := pemDecode(publicKey)
+	assert.Nil(t, err)
+
+	crypto := newKeyDecryptionStrategy(pubkey, privkey)
+
+	envelope, err := encryptEnvelope(pubkey, privkey, []byte("secret"))
+
+	// Add some whitespace to the middle of the envelope
+	envelope = envelope[0:len(envelope)/2] + " \t  \n  \t  " + envelope[len(envelope)/2:len(envelope)]
+
+	result, err := decryptEnvelopes("This is a "+envelope+" message", crypto)
+	assert.Nil(t, err, "%v", err)
+	assert.Equal(t, "This is a secret message", result)
+}

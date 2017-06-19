@@ -162,7 +162,7 @@ func decryptEnvelopes(input string, crypto DecryptionStrategy) (output string, e
 	}()
 
 	repl := func(envelope string) string {
-		bytes, err := crypto.Decrypt(envelope)
+		bytes, err := crypto.Decrypt(stripWhitespace(envelope))
 		if err != nil {
 			panic(err)
 		}
