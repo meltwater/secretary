@@ -173,10 +173,6 @@ func decryptEnvelopes(input string, decryptor DecryptionStrategy) (output string
 	return
 }
 
-func extractEnvelopes(payload string) []string {
-	return envelopeRegexp.FindAllString(payload, -1)
-}
-
 func extractEnvelopeType(envelope string) string {
 	submatches := envelopeRegexp.FindStringSubmatch(envelope)
 	if submatches != nil {

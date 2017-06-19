@@ -47,32 +47,6 @@ func TestFindKey(t *testing.T) {
 	assert.Nil(t, findKey("", "RANDOM_ENVVAR_THAT_DOESNT_EXIST", "./resources/test/keys/nonexist-public-key.pem"))
 }
 
-func TestExtractEnvelopes(t *testing.T) {
-	envelopes := extractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/")
-	assert.Equal(t, 2, len(envelopes))
-	assert.Equal(t, []string{"ENC[NACL,uSr123+/=]", "ENC[NACL,pWd123+/=]"}, envelopes)
-
-	envelopes = extractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/ENC[NACL,def123+/=]")
-	assert.Equal(t, 3, len(envelopes))
-	assert.Equal(t, []string{"ENC[NACL,uSr123+/=]", "ENC[NACL,pWd123+/=]", "ENC[NACL,def123+/=]"}, envelopes)
-
-	envelopes = extractEnvelopes("amqp://ENC[NACL,]:ENC[NACL,pWd123+/=]@rabbit:5672/")
-	assert.Equal(t, 1, len(envelopes))
-	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
-
-	envelopes = extractEnvelopes("amqp://ENC[NACL,:ENC[NACL,pWd123+/=]@rabbit:5672/")
-	assert.Equal(t, 1, len(envelopes))
-	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
-
-	envelopes = extractEnvelopes("amqp://NC[NACL,]:ENC[NACL,pWd123+/=]@rabbit:5672/")
-	assert.Equal(t, 1, len(envelopes))
-	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
-
-	envelopes = extractEnvelopes("amqp://ENC[NACL,abc:ENC[NACL,pWd123+/=]@rabbit:5672/")
-	assert.Equal(t, 1, len(envelopes))
-	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
-}
-
 func TestExtractEnvelopeType(t *testing.T) {
 	assert.Equal(t, "", extractEnvelopeType("ENC[NACL,]"))
 	assert.Equal(t, "NACL", extractEnvelopeType("ENC[NACL,abc]"))
@@ -134,8 +108,16 @@ func TestEncryptEnvelope(t *testing.T) {
 	assert.Equal(t, "secret", string(plaintext), "Should decrypt plaintext")
 }
 
+type noopDecryptionStrategyType struct{}
+
+func (noopDecryptionStrategyType) Decrypt(envelope string) ([]byte, error) {
+	return []byte(envelope), nil
+}
+
+var NoopDecryptionStrategy DecryptionStrategy = noopDecryptionStrategyType{}
+
 func BenchmarkExtractEnvelopes(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		extractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/")
+		decryptEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/", NoopDecryptionStrategy)
 	}
 }
