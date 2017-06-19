@@ -151,3 +151,60 @@ func TestCreateExecArgs(t *testing.T) {
 	assert.Equal(t, []string{"echo", "Mellon"}, argv)
 	assert.Equal(t, []string{"SECRET=hunter2"}, environ)
 }
+
+func TestCreateExecArgsInvalidEnvelope(t *testing.T) {
+	configPublicKey := pemRead("./resources/test/keys/config-public-key.pem")
+	//	configPrivateKey := pemRead("./resources/test/keys/config-private-key.pem")
+	//	masterPublicKey := pemRead("./resources/test/keys/master-public-key.pem")
+	masterPrivateKey := pemRead("./resources/test/keys/master-private-key.pem")
+
+	crypto := newKeyDecryptionStrategy(configPublicKey, masterPrivateKey)
+
+	_, _, _, err := createExecArgs(
+		[]string{"/bin/echo", "ENC[NACL,invalidenvelope]"},
+		[]string{},
+		crypto,
+	)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "Error while decrypting argument")
+}
+
+func TestCreateExecArgsInvalidEnvelopeInEnvironment(t *testing.T) {
+	configPublicKey := pemRead("./resources/test/keys/config-public-key.pem")
+	//	configPrivateKey := pemRead("./resources/test/keys/config-private-key.pem")
+	//	masterPublicKey := pemRead("./resources/test/keys/master-public-key.pem")
+	masterPrivateKey := pemRead("./resources/test/keys/master-private-key.pem")
+
+	crypto := newKeyDecryptionStrategy(configPublicKey, masterPrivateKey)
+
+	_, _, _, err := createExecArgs(
+		[]string{"/bin/echo"},
+		[]string{"ENC[NACL,invalidenvelope]"},
+		crypto,
+	)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "Error while decrypting environment")
+}
+
+func TestCreateExecArgsInvalidDecryptionKey(t *testing.T) {
+	configPublicKey := pemRead("./resources/test/keys/config-public-key.pem")
+	configPrivateKey := pemRead("./resources/test/keys/config-private-key.pem")
+	masterPublicKey := pemRead("./resources/test/keys/master-public-key.pem")
+	//masterPrivateKey := pemRead("./resources/test/keys/master-private-key.pem")
+
+	encrypted, err := encryptEnvelope(masterPublicKey, configPrivateKey, []byte("Mellon"))
+	assert.Nil(t, err)
+
+	// NB: Erroneously using configPrivateKey here
+	crypto := newKeyDecryptionStrategy(configPublicKey, configPrivateKey)
+
+	_, _, _, err = createExecArgs(
+		[]string{"/bin/echo", encrypted},
+		[]string{},
+		crypto,
+	)
+
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "Error while decrypting argument")
+	assert.Contains(t, err.Error(), "incorrect keys?")
+}
