@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/nacl/box"
+	"io/ioutil"
+	"os"
 )
 
 const privateKey = `Q1PuWtB1E7F1sLpvfBGjL+ZuH+fSCOvMDqTyRQE4GTg=`
@@ -45,6 +47,19 @@ func TestFindKey(t *testing.T) {
 	expected := encode(pemRead("./resources/test/keys/config-public-key.pem")[:])
 	assert.Equal(t, expected, encode(findKey("", "RANDOM_ENVVAR_THAT_DOESNT_EXIST", "./resources/test/keys/config-public-key.pem")[:]))
 	assert.Nil(t, findKey("", "RANDOM_ENVVAR_THAT_DOESNT_EXIST", "./resources/test/keys/nonexist-public-key.pem"))
+}
+
+func TestFindKeyEnvironmentPem(t *testing.T) {
+	bytes, _ := ioutil.ReadFile("./resources/test/keys/config-public-key.pem")
+	os.Setenv("PUBLIC_KEY", string(bytes))
+	expected, _ := pemDecode(string(bytes))
+	assert.Equal(t, expected, findKey("PUBLIC_KEY"))
+}
+
+func TestFindKeyEnvironmentPath(t *testing.T) {
+	os.Setenv("PUBLIC_KEY", "./resources/test/keys/config-public-key.pem")
+	expected := pemRead("./resources/test/keys/config-public-key.pem")
+	assert.Equal(t, expected, findKey("PUBLIC_KEY"))
 }
 
 func TestExtractEnvelopeType(t *testing.T) {
