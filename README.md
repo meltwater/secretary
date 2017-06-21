@@ -192,6 +192,7 @@ variables:
 override:
   env:
     SERVICE_PUBLIC_KEY: "%{secretary.service.publickey}"
+    SERVICE_PRIVATE_KEY: /service/keys/service-private-key.pem
   container:
     volumes:
      - containerPath: "/service/keys"
@@ -212,6 +213,7 @@ An runtime config automatically expanded by Lighter might look like
         "DEPLOY_PUBLIC_KEY": "0k+v11LV3SOr+XiFJ/ug0KcPPhwkXnVirmO65nAd1LI=",
         "DEPLOY_PRIVATE_KEY": "rEmz7Rt6tUnlC4TKYeNzePYg+p1ePAw4BAtfJAY4zzs=",
         "SERVICE_PUBLIC_KEY": "/1fbWGMTaR+lLQJnEsmxdfwWybKOpPQpyWB3FpNmOF4=",
+        "SERVICE_PRIVATE_KEY": "/service/keys/service-private-key.pem"
         "DATABASE_USERNAME": "myservice",
         "DATABASE_PASSWORD": "ENC[NACL,SLXf+O9iG48uyojT0Zg30Q8/uRV8DizuDWMWtgL5PmTU54jxp5cTGrYeLpd86rA=]",
         "DATABASE_URL": "jdbc:mysql://hostname:3306/schema"
