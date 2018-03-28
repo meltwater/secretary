@@ -1,0 +1,22 @@
+
+name: secretary
+version: git
+summary: Secrets management for dynamic environments
+description: |
+  Secretary helps solve the problem of secrets distribution and authorization in highly dynamic container and VM environments.
+
+grade: devel
+confinement: devmode
+
+parts:
+  go:
+    source-tag: go1.9.2
+  secretary:
+    after: [go]
+    source: .
+    plugin: go
+    go-importpath: github.com/meltwater/secretary
+
+apps:
+  secretary:
+    command: secretary
