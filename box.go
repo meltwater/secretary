@@ -86,13 +86,21 @@ func findKey(locations ...string) *[32]byte {
 			continue
 		}
 
-		encoded := os.Getenv(location)
-		if encoded != "" {
-			key, err := pemDecode(encoded)
+		// First try to interpret the argument as an environment variable
+		env := os.Getenv(location)
+		if env != "" {
+			// If the environment variable is the path to an existing file, use that
+			if _, err := os.Stat(env); err == nil {
+				return pemRead(env)
+			}
+
+			// Otherwise, try to decode the key as a pem-formatted string
+			key, err := pemDecode(env)
 			check(err, "Failed to decode key in $%s", location)
 			return key
 		}
 
+		// If there is no such environment variable, check whether it is a path to a file
 		if _, err := os.Stat(location); err == nil {
 			return pemRead(location)
 		}
@@ -150,8 +158,27 @@ func genkey(publicKeyFile string, privateKeyFile string) {
 	pemWrite(privateKey, privateKeyFile, "NACL PRIVATE KEY", 0600)
 }
 
-func extractEnvelopes(payload string) []string {
-	return envelopeRegexp.FindAllString(payload, -1)
+func decryptEnvelopes(input string, crypto DecryptionStrategy) (output string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			var ok bool
+			err, ok = r.(error)
+			if !ok {
+				err = fmt.Errorf("%v", r)
+			}
+		}
+	}()
+
+	repl := func(envelope string) string {
+		bytes, err := crypto.Decrypt(stripWhitespace(envelope))
+		if err != nil {
+			panic(err)
+		}
+		return string(bytes)
+	}
+
+	output = envelopeRegexp.ReplaceAllStringFunc(input, repl)
+	return
 }
 
 func extractEnvelopeType(envelope string) string {

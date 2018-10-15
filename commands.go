@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 )
@@ -35,18 +36,8 @@ func encryptCommand(input io.Reader, output io.Writer, crypto EncryptionStrategy
 func decryptStream(input io.Reader, output io.Writer, crypto DecryptionStrategy) {
 	payload, err := ioutil.ReadAll(input)
 	check(err, "Failed to read encrypted data from standard input")
-	result := string(payload)
-
-	envelopes := extractEnvelopes(string(payload))
-	if len(envelopes) > 0 {
-		for _, envelope := range envelopes {
-			plaintext, err := crypto.Decrypt(stripWhitespace(envelope))
-			check(err)
-
-			result = strings.Replace(result, envelope, string(plaintext), 1)
-		}
-	}
-
+	result, err := decryptEnvelopes(string(payload), crypto)
+	check(err, "Failed to decrypt from standard input")
 	output.Write([]byte(result))
 }
 
@@ -59,30 +50,50 @@ func decryptEnvironment(input []string, output io.Writer, crypto DecryptionStrat
 		keyval := strings.SplitN(item, "=", 2)
 		key, value := keyval[0], keyval[1]
 		result := value
-
-		envelopes := extractEnvelopes(value)
-		if len(envelopes) > 0 {
+		decryptedResult, suberr := decryptEnvelopes(result, crypto)
+		if suberr != nil {
+			ok = false
+			err = suberr
+			fmt.Fprintf(os.Stderr, "%s: %s\n", key, err)
+			continue
+		}
+		if decryptedResult != result {
 			if !shellIdentifierRegexp.Match([]byte(key)) {
 				ok = false
 				err = fmt.Errorf("the env var '%s' is not a valid shell script identifier. Only alphanumeric characters and underscores are supported, starting with an alphabetic or underscore character", key)
 				fmt.Fprintf(os.Stderr, "%s: %s\n", key, err)
 			}
-
-			for _, envelope := range envelopes {
-				plaintext, suberr := crypto.Decrypt(stripWhitespace(envelope))
-				if suberr != nil {
-					ok = false
-					err = suberr
-					fmt.Fprintf(os.Stderr, "%s: %s\n", key, err)
-					continue
-				}
-
-				result = strings.Replace(result, envelope, string(plaintext), 1)
-			}
-
-			fmt.Fprintf(output, "export %s='%s'\n", key, result)
+			fmt.Fprintf(output, "export %s='%s'\n", key, decryptedResult)
 		}
 	}
 
 	return ok, err
+}
+
+func createExecArgs(args []string, encryptedEnviron []string, crypto DecryptionStrategy) (cmd string, decryptedArgs []string, decryptedEnviron []string, err error) {
+
+	cmd = args[0]
+	decryptedArgs = make([]string, len(args))
+
+	decryptedArgs[0] = path.Base(cmd) // By unix convention argv[0] has to be set to basename of command
+	for i, arg := range args[1:] {
+		decryptedArg, subErr := decryptEnvelopes(arg, crypto)
+		if subErr != nil {
+			err = fmt.Errorf("Error while decrypting argument: %v", subErr)
+		}
+
+		decryptedArgs[i+1] = decryptedArg
+	}
+
+	decryptedEnviron = make([]string, len(encryptedEnviron))
+	for i, env := range encryptedEnviron {
+		decryptedEnv, subErr := decryptEnvelopes(env, crypto)
+		if subErr != nil {
+			err = fmt.Errorf("Error while decrypting environment variables: %v", subErr)
+		}
+
+		decryptedEnviron[i] = decryptedEnv
+	}
+
+	return
 }

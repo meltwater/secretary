@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"syscall"
+
 	"github.com/go-errors/errors"
 	"github.com/spf13/cobra"
 )
@@ -135,6 +137,99 @@ func main() {
 
 		cmdDecrypt.Flags().BoolVarP(&decryptEnv, "decrypt-env", "e", false, "Decrypt environment variables")
 		rootCmd.AddCommand(cmdDecrypt)
+	}
+
+	// Exec command
+	{
+		var secretaryURL, appID, appVersion, taskID string
+		var configKeyFile, masterKeyFile, deployKeyFile, serviceKeyFile string
+		cmdExec := &cobra.Command{
+			Use:   "exec",
+			Short: "execute program, decrypting environment variables and arguments",
+			PreRun: func(cmd *cobra.Command, args []string) {
+				if len(args) == 0 {
+					fmt.Print("Error: Must supply at least one command\n\n")
+					cmd.Usage()
+					os.Exit(1)
+				}
+			},
+			Run: func(cmd *cobra.Command, args []string) {
+				var crypto DecryptionStrategy
+
+				if len(secretaryURL) > 0 {
+					deployKey := requireKey("deploy private", deployKeyFile, "DEPLOY_PRIVATE_KEY", "./keys/master-private-key.pem")
+					masterKey := requireKey("master public", masterKeyFile, "MASTER_PUBLIC_KEY", "./keys/master-public-key.pem")
+					serviceKey := findKey(serviceKeyFile, "SERVICE_PRIVATE_KEY")
+					crypto = newDaemonDecryptionStrategy(
+						secretaryURL, appID, appVersion, taskID,
+						masterKey, deployKey, serviceKey)
+				} else {
+					// Send ENC[KMS,..] and ENC[NACL,...] to separate decryptors
+					composite := newCompositeDecryptionStrategy()
+					composite.Add("KMS", newKmsDecryptionStrategy(newKmsClient()))
+
+					deployKey := findKey("deploy private", deployKeyFile, "DEPLOY_PRIVATE_KEY", "./keys/master-private-key.pem")
+					configKey := findKey("config public", configKeyFile, "CONFIG_PUBLIC_KEY", "./keys/config-public-key.pem")
+					if deployKey != nil && configKey != nil {
+						composite.Add("NACL", newKeyDecryptionStrategy(configKey, deployKey))
+					}
+
+					crypto = composite
+				}
+
+				newCmd, newArgs, newEnvs, err := createExecArgs(args, os.Environ(), crypto)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%v", err)
+					os.Exit(1)
+				}
+
+				if err := syscall.Exec(newCmd, newArgs, newEnvs); err != nil {
+					fmt.Fprintf(os.Stderr, "Error when executing command \"%s\": %v\n", newCmd, err)
+				}
+			},
+		}
+
+		// The usage template is here in order to give the usage text:
+		//     secretary exec [flags] -- cmd [args...]
+		// No immediately obvious way to accomplish that other than replacing the entire usage template.
+		cmdExec.SetUsageTemplate(`Usage:{{if .Runnable}}
+  {{.UseLine}}{{if .HasFlags}} [flags]{{end}}{{end}}{{if .HasSubCommands}}
+  {{ .CommandPath}} [command]{{end}} -- cmd [args...]{{if gt .Aliases 0}}
+
+Aliases:
+  {{.NameAndAliases}}
+{{end}}{{if .HasExample}}
+
+Examples:
+{{ .Example }}{{end}}{{ if .HasAvailableSubCommands}}
+
+Available Commands:{{range .Commands}}{{if .IsAvailableCommand}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{ if .HasLocalFlags}}
+
+Flags:
+{{.LocalFlags.FlagUsages | trimRightSpace}}{{end}}{{ if .HasInheritedFlags}}
+
+Global Flags:
+{{.InheritedFlags.FlagUsages | trimRightSpace}}{{end}}{{if .HasHelpSubCommands}}
+
+Additional help topics:{{range .Commands}}{{if .IsHelpCommand}}
+  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{ if .HasSubCommands }}
+
+Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
+`)
+
+		cmdExec.Flags().StringVarP(&deployKeyFile, "private-key", "", "", "Private key file for use without daemon")
+
+		cmdExec.Flags().StringVarP(&configKeyFile, "config-key", "", "", "Config public key file")
+		cmdExec.Flags().StringVarP(&masterKeyFile, "master-key", "", "", "Master public key file")
+		cmdExec.Flags().StringVarP(&deployKeyFile, "deploy-key", "", "", "Private deploy key file")
+		cmdExec.Flags().StringVarP(&serviceKeyFile, "service-key", "", "", "Private service key file")
+
+		cmdExec.Flags().StringVarP(&secretaryURL, "secretary-url", "s", os.Getenv("SECRETARY_URL"), "URL of secretary daemon, e.g. https://secretary:5070")
+		cmdExec.Flags().StringVarP(&appID, "app-id", "", os.Getenv("MARATHON_APP_ID"), "Marathon app id")
+		cmdExec.Flags().StringVarP(&appVersion, "app-version", "", os.Getenv("MARATHON_APP_VERSION"), "Marathon app config version")
+		cmdExec.Flags().StringVarP(&taskID, "task-id", "", os.Getenv("MESOS_TASK_ID"), "Mesos task id")
+		rootCmd.AddCommand(cmdExec)
 	}
 
 	// Daemon command

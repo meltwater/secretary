@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/nacl/box"
+	"io/ioutil"
+	"os"
 )
 
 const privateKey = `Q1PuWtB1E7F1sLpvfBGjL+ZuH+fSCOvMDqTyRQE4GTg=`
@@ -47,30 +49,17 @@ func TestFindKey(t *testing.T) {
 	assert.Nil(t, findKey("", "RANDOM_ENVVAR_THAT_DOESNT_EXIST", "./resources/test/keys/nonexist-public-key.pem"))
 }
 
-func TestExtractEnvelopes(t *testing.T) {
-	envelopes := extractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/")
-	assert.Equal(t, 2, len(envelopes))
-	assert.Equal(t, []string{"ENC[NACL,uSr123+/=]", "ENC[NACL,pWd123+/=]"}, envelopes)
+func TestFindKeyEnvironmentPem(t *testing.T) {
+	bytes, _ := ioutil.ReadFile("./resources/test/keys/config-public-key.pem")
+	os.Setenv("PUBLIC_KEY", string(bytes))
+	expected, _ := pemDecode(string(bytes))
+	assert.Equal(t, expected, findKey("PUBLIC_KEY"))
+}
 
-	envelopes = extractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/ENC[NACL,def123+/=]")
-	assert.Equal(t, 3, len(envelopes))
-	assert.Equal(t, []string{"ENC[NACL,uSr123+/=]", "ENC[NACL,pWd123+/=]", "ENC[NACL,def123+/=]"}, envelopes)
-
-	envelopes = extractEnvelopes("amqp://ENC[NACL,]:ENC[NACL,pWd123+/=]@rabbit:5672/")
-	assert.Equal(t, 1, len(envelopes))
-	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
-
-	envelopes = extractEnvelopes("amqp://ENC[NACL,:ENC[NACL,pWd123+/=]@rabbit:5672/")
-	assert.Equal(t, 1, len(envelopes))
-	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
-
-	envelopes = extractEnvelopes("amqp://NC[NACL,]:ENC[NACL,pWd123+/=]@rabbit:5672/")
-	assert.Equal(t, 1, len(envelopes))
-	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
-
-	envelopes = extractEnvelopes("amqp://ENC[NACL,abc:ENC[NACL,pWd123+/=]@rabbit:5672/")
-	assert.Equal(t, 1, len(envelopes))
-	assert.Equal(t, []string{"ENC[NACL,pWd123+/=]"}, envelopes)
+func TestFindKeyEnvironmentPath(t *testing.T) {
+	os.Setenv("PUBLIC_KEY", "./resources/test/keys/config-public-key.pem")
+	expected := pemRead("./resources/test/keys/config-public-key.pem")
+	assert.Equal(t, expected, findKey("PUBLIC_KEY"))
 }
 
 func TestExtractEnvelopeType(t *testing.T) {
@@ -134,8 +123,50 @@ func TestEncryptEnvelope(t *testing.T) {
 	assert.Equal(t, "secret", string(plaintext), "Should decrypt plaintext")
 }
 
-func BenchmarkExtractEnvelopes(b *testing.B) {
+type noopDecryptionStrategyType struct{}
+
+func (noopDecryptionStrategyType) Decrypt(envelope string) ([]byte, error) {
+	return []byte(envelope), nil
+}
+
+var NoopDecryptionStrategy DecryptionStrategy = noopDecryptionStrategyType{}
+
+func BenchmarkDecryptEnvelopes(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		extractEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/")
+		decryptEnvelopes("amqp://ENC[NACL,uSr123+/=]:ENC[NACL,pWd123+/=]@rabbit:5672/", NoopDecryptionStrategy)
 	}
+}
+
+func TestDecryptEnvelopes(t *testing.T) {
+	privkey, err := pemDecode(privateKey)
+	assert.Nil(t, err)
+
+	pubkey, err := pemDecode(publicKey)
+	assert.Nil(t, err)
+
+	envelope, err := encryptEnvelope(pubkey, privkey, []byte("secret"))
+	crypto := newKeyDecryptionStrategy(pubkey, privkey)
+
+	result, err := decryptEnvelopes("This is a "+envelope+" message", crypto)
+	assert.Nil(t, err)
+	assert.Equal(t, "This is a secret message", result)
+}
+
+func TestDecryptEnvelopesStripsWhitespace(t *testing.T) {
+	privkey, err := pemDecode(privateKey)
+	assert.Nil(t, err)
+
+	pubkey, err := pemDecode(publicKey)
+	assert.Nil(t, err)
+
+	crypto := newKeyDecryptionStrategy(pubkey, privkey)
+
+	envelope, err := encryptEnvelope(pubkey, privkey, []byte("secret"))
+
+	// Add some whitespace to the middle of the envelope
+	envelope = envelope[0:len(envelope)/2] + " \t  \n  \t  " + envelope[len(envelope)/2:len(envelope)]
+
+	result, err := decryptEnvelopes("This is a "+envelope+" message", crypto)
+	assert.Nil(t, err, "%v", err)
+	assert.Equal(t, "This is a secret message", result)
 }
