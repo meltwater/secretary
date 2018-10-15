@@ -5,7 +5,7 @@ all: tools deps fmt build test lint
 
 tools:
 	go get -u golang.org/x/tools/cmd/cover
-	go get -u github.com/golang/lint/golint
+	go get -u golang.org/x/lint/golint
 	go get -u github.com/Masterminds/glide
 
 deps:
