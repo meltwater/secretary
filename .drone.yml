@@ -1,5 +1,9 @@
 ## BRIAN BURNETT - WIP
 
+workspace:
+  base: /go
+  path: src/github.com/meltwater/secretary
+
 pipeline:
   build:
     image: golang:1.9.2
