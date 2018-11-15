@@ -8,6 +8,8 @@ pipeline:
   build:
     image: golang:1.9.2
     commands:
+      - env
+      - pwd
       - if [ -f Makefile ]; then make; fi
 
   # Deploy executables to Github release tags
