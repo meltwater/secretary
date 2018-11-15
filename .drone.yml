@@ -1,4 +1,3 @@
----
 kind: pipeline
 name: default
 
@@ -7,7 +6,7 @@ workspace:
   path: src/github.com/meltwater/secretary
 
 steps:
-- build:
+  - build:
     image: golang:1.9.2
     commands:
       - ls
@@ -16,7 +15,7 @@ steps:
       - if [ -f Makefile ]; then make; fi
 
   # Deploy executables to Github release tags
-- github_release:
+  - github_release:
     image: plugins/github-release
     secrets: [ github_token ]
     files: "secretary-$(uname -s)-$(uname -m)"
@@ -24,7 +23,7 @@ steps:
       event: tag
 
   # Code coverage for master branch using https://codecov.io/github/mikljohansson/secretary
-- codecove.io:
+  - codecove.io:
     when:
       event: push
       status: success
