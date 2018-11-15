@@ -6,27 +6,30 @@ workspace:
   path: src/github.com/meltwater/secretary
 
 steps:
-  - name: build
-    image: golang:1.9.2
-    commands:
-      - ls
-      - env
-      - pwd
-      - if [ -f Makefile ]; then make; fi
+- name: build
+  image: golang:1.9.2
+  commands:
+  - ls
+  - env
+  - pwd
+  - if [ -f Makefile ]; then make; fi
 
-  # Deploy executables to Github release tags
-  - name: github_release
-    image: plugins/github-release
-    secrets: [ github_token ]
-    files: "secretary-$(uname -s)-$(uname -m)"
-    when:
-      event: tag
+# Deploy executables to Github release tags
+- name: github_release
+  image: plugins/github-release
+  secrets: [ github_token ]
+  files: "secretary-$(uname -s)-$(uname -m)"
+  when:
+    event:
+    - tag
 
-  # Code coverage for master branch using https://codecov.io/github/mikljohansson/secretary
-  - name: codecove.io
-    when:
-      event: push
-      status: success
+# Code coverage for master branch using https://codecov.io/github/mikljohansson/secretary
+- name: codecove.io
+  when:
+    event:
+    - push
+    status:
+    - success
     image: alpine:3.7
     commands:
-      - if [ "$TRAVIS_TAG" == "" ] && [ "$TRAVIS_OS_NAME" == "linux" ]; then bash <(curl -s https://codecov.io/bash); fi
+    - if [ "$TRAVIS_TAG" == "" ] && [ "$TRAVIS_OS_NAME" == "linux" ]; then bash <(curl -s https://codecov.io/bash); fi
