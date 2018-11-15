@@ -1,13 +1,18 @@
 ## BRIAN BURNETT - WIP
 
+---
+kind: pipeline
+name: default
+
 workspace:
   base: /go
   path: src/github.com/meltwater/secretary
 
-pipeline:
+steps:
   build:
     image: golang:1.9.2
     commands:
+      - ls
       - env
       - pwd
       - if [ -f Makefile ]; then make; fi
