@@ -30,6 +30,6 @@ steps:
     - push
     status:
     - success
-    image: alpine:3.7
-    commands:
-    - if [ "$TRAVIS_TAG" == "" ] && [ "$TRAVIS_OS_NAME" == "linux" ]; then bash <(curl -s https://codecov.io/bash); fi
+  image: alpine:3.7
+  commands:
+  - if [ "$TRAVIS_TAG" == "" ] && [ "$TRAVIS_OS_NAME" == "linux" ]; then bash <(curl -s https://codecov.io/bash); fi
