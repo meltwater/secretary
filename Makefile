@@ -11,8 +11,6 @@ tools:
 	go get -u github.com/Masterminds/glide
 
 deps:
-	ls /go/bin
-	env
 	glide install
 
 # http://golang.org/cmd/go/#hdr-Run_gofmt_on_package_sources
