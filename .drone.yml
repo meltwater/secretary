@@ -28,9 +28,10 @@ steps:
     status:
     - success
   image: alpine:3.7
-  commands: |-
-    #!/bin/bash
-    bash <(curl -s https://codecov.io/bash)
+  commands:
+  - curl -o codecov.sh -s https://codecov.io/bash
+  - chmod +x codecov.sh
+  - ./codecov.sh
 
 # Deploy executables to Github release tags
 - name: github_release
