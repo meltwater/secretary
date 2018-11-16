@@ -1,7 +1,7 @@
 export GO15VENDOREXPERIMENT=1
 VERSION := $(shell git describe --tags)
 
-GOOS ?= $(shell uname -s | tr '[:upper:]' '[:lower:]')
+OS ?= $(shell uname -s | tr '[:upper:]' '[:lower:]')
 
 all: tools deps fmt build
 
@@ -20,9 +20,9 @@ fmt:
 	go fmt ./...
 
 build:
-	CGO_ENABLED=0 GOOS=${GOOS} go build -o "secretary-`echo ${GOOS} | sed -e "s/\b./\u\0/g"`-`uname -m`" \
+	CGO_ENABLED=0 GOOS=${OS} go build -o "secretary-`echo ${OS} | sed -e "s/\b./\u\0/g"`-`uname -m`" \
 	-ldflags "-X main.version=${VERSION}"
-	ln -sf "secretary-`echo ${GOOS} | sed -e "s/\b./\u\0/g"`-`uname -m`" secretary
+	ln -sf "secretary-`echo ${OS} | sed -e "s/\b./\u\0/g"`-`uname -m`" secretary
 
 test:
 	go test -bench=. -v -coverprofile=coverage.txt -covermode=atomic
