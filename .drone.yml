@@ -23,12 +23,13 @@ steps:
   - make lint
 
 # Code coverage using https://codecov.io/github/mikljohansson/secretary
-- name: codecove.io
+- name: codecov.io
   when:
     status:
     - success
   image: alpine:3.7
   commands:
+  - apk add curl
   - curl -o codecov.sh -s https://codecov.io/bash
   - chmod +x codecov.sh
   - ./codecov.sh
