@@ -11,6 +11,7 @@ tools:
 	go get -u github.com/Masterminds/glide
 
 deps:
+	ls /go/bin
 	env
 	glide install
 
