@@ -1,2 +1,2 @@
 #!/bin/bash
-bash <(curl -s https://codecov.io/bash)
+bash -x <(curl -s https://codecov.io/bash)
