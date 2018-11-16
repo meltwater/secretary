@@ -30,9 +30,7 @@ steps:
   image: alpine:3.7
   commands:
   - apk add curl bash
-  - curl -o codecov.sh -s https://codecov.io/bash
-  - chmod +x codecov.sh
-  - ./codecov.sh
+  - bash <(curl -s https://codecov.io/bash)
 
 # Deploy executables to Github release tags
 - name: github_release
