@@ -29,7 +29,7 @@ steps:
     - success
   image: alpine:3.7
   commands:
-  - apk add curl
+  - apk add curl bash
   - curl -o codecov.sh -s https://codecov.io/bash
   - chmod +x codecov.sh
   - ./codecov.sh
