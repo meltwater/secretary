@@ -6,6 +6,11 @@ workspace:
   path: src/github.com/meltwater/secretary
 
 steps:
+- name: fetch
+  image: docker:git
+  commands:
+  - git fetch --tags
+
 - name: build
   image: golang:1.9.2
   commands:
@@ -41,6 +46,11 @@ workspace:
   path: src/github.com/meltwater/secretary
 
 steps:
+- name: fetch
+  image: docker:git
+  commands:
+  - git fetch --tags
+
 - name: build
   image: golang:1.9.2
   commands:
