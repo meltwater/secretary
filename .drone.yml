@@ -54,7 +54,7 @@ steps:
 - name: build
   image: golang:1.9.2
   commands:
-  - make GOOS=darwin
+  - make OS=darwin
 
 # Deploy executables to Github release tags
 - name: github_release
