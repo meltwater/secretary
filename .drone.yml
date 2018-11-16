@@ -15,17 +15,12 @@ steps:
   image: golang:1.9.2
   commands:
   - make
+
+- name: test
+  image: golang:1.9.2
+  commands:
   - make test
   - make lint
-
-# Deploy executables to Github release tags
-- name: github_release
-  image: plugins/github-release
-  secrets: [ github_token ]
-  files: secretary-Linux-x86_64
-  when:
-    event:
-    - tag
 
 # Code coverage using https://codecov.io/github/mikljohansson/secretary
 - name: codecove.io
@@ -33,8 +28,20 @@ steps:
     status:
     - success
   image: alpine:3.7
-  commands:
-  - bash <\(curl -s https://codecov.io/bash\)
+  commands: |-
+    #!/bin/bash
+    bash <(curl -s https://codecov.io/bash)
+
+# Deploy executables to Github release tags
+- name: github_release
+  image: plugins/github-release
+  secrets: [ github_token ]
+  files: secretary-Linux-x86_64
+  when:
+    status:
+    - success
+    event:
+    - tag
 
 ---
 
@@ -62,5 +69,7 @@ steps:
   secrets: [ github_token ]
   files: secretary-Darwin-x86_64
   when:
+    status:
+    - success
     event:
     - tag
