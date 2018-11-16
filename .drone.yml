@@ -10,6 +10,8 @@ steps:
   image: golang:1.9.2
   commands:
   - make
+  - make test
+  - make lint
 
 # Deploy executables to Github release tags
 - name: github_release
@@ -42,10 +44,7 @@ steps:
 - name: build
   image: golang:1.9.2
   commands:
-  - make tools
-  - make deps
-  - make fmt
-  - make build GOOS=darwin OS=Darwin
+  - make GOOS=darwin
 
 # Deploy executables to Github release tags
 - name: github_release

@@ -1,10 +1,9 @@
 export GO15VENDOREXPERIMENT=1
 VERSION := $(shell git describe --tags)
-GOOS ?= linux
-OS ?= $(shell uname -s)
-ARCH ?= $(shell uname -m)
 
-all: tools deps fmt build test lint
+GOOS ?= $(shell uname -s | tr '[:upper:]' '[:lower:]')
+
+all: tools deps fmt build
 
 tools:
 	go get -u golang.org/x/tools/cmd/cover
@@ -19,9 +18,9 @@ fmt:
 	go fmt ./...
 
 build:
-	 CGO_ENABLED=0 GOOS=${GOOS} go build -o "secretary-${OS}-${ARCH}" \
+	 CGO_ENABLED=0 GOOS=${GOOS} go build -o "secretary-`echo ${GOOS} | sed -e "s/\b./\u\0/g"`-`uname -m`" \
 	 -ldflags "-X main.version=${VERSION}"
-	 ln -sf "secretary-${OS}-${ARCH}" secretary
+	 ln -sf "secretary-`echo ${GOOS} | sed -e "s/\b./\u\0/g"`-`uname -m`" secretary
 
 test:
 	go test -bench=. -v -coverprofile=coverage.txt -covermode=atomic
