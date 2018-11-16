@@ -21,7 +21,7 @@ fmt:
 build:
 	 CGO_ENABLED=0 GOOS=${GOOS} go build -o "secretary-${OS}-${ARCH}" \
 	 -ldflags "-X main.version=${VERSION}"
-	 ln -sf "secretary-`uname -s`-`uname -m`" secretary
+	 ln -sf "secretary-${OS}-${ARCH}" secretary
 
 test:
 	go test -bench=. -v -coverprofile=coverage.txt -covermode=atomic
