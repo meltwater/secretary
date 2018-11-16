@@ -11,6 +11,7 @@ tools:
 	go get -u github.com/Masterminds/glide
 
 deps:
+	env
 	glide install
 
 # http://golang.org/cmd/go/#hdr-Run_gofmt_on_package_sources
@@ -18,9 +19,9 @@ fmt:
 	go fmt ./...
 
 build:
-	 CGO_ENABLED=0 GOOS=${GOOS} go build -o "secretary-`echo ${GOOS} | sed -e "s/\b./\u\0/g"`-`uname -m`" \
-	 -ldflags "-X main.version=${VERSION}"
-	 ln -sf "secretary-`echo ${GOOS} | sed -e "s/\b./\u\0/g"`-`uname -m`" secretary
+	CGO_ENABLED=0 GOOS=${GOOS} go build -o "secretary-`echo ${GOOS} | sed -e "s/\b./\u\0/g"`-`uname -m`" \
+	-ldflags "-X main.version=${VERSION}"
+	ln -sf "secretary-`echo ${GOOS} | sed -e "s/\b./\u\0/g"`-`uname -m`" secretary
 
 test:
 	go test -bench=. -v -coverprofile=coverage.txt -covermode=atomic
