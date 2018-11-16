@@ -1,5 +1,5 @@
 kind: pipeline
-name: default
+name: linux
 
 workspace:
   base: /go
@@ -9,27 +9,46 @@ steps:
 - name: build
   image: golang:1.9.2
   commands:
-  - ls
-  - env
-  - pwd
-  - if [ -f Makefile ]; then make; fi
+  - make
 
 # Deploy executables to Github release tags
 - name: github_release
   image: plugins/github-release
   secrets: [ github_token ]
-  files: "secretary-$(uname -s)-$(uname -m)"
+  files: secretary-Linux-x86_64
   when:
     event:
     - tag
 
-# Code coverage for master branch using https://codecov.io/github/mikljohansson/secretary
+# Code coverage using https://codecov.io/github/mikljohansson/secretary
 - name: codecove.io
   when:
-    event:
-    - push
     status:
     - success
   image: alpine:3.7
   commands:
-  - if [ "$TRAVIS_TAG" == "" ] && [ "$TRAVIS_OS_NAME" == "linux" ]; then bash <(curl -s https://codecov.io/bash); fi
+  - bash <(curl -s https://codecov.io/bash)
+
+---
+
+kind: pipeline
+name: darwin
+
+workspace:
+  base: /go
+  path: src/github.com/meltwater/secretary
+
+steps:
+- name: build
+  image: golang:1.9.2
+  commands:
+  - make GOOS=darwin
+
+# Deploy executables to Github release tags
+- name: github_release
+  image: plugins/github-release
+  secrets: [ github_token ]
+  files: secretary-Darwin-x86_64
+  when:
+    event:
+    - tag
