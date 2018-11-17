@@ -27,10 +27,9 @@ steps:
   when:
     status:
     - success
-  image: alpine:3.7
-  commands:
-  - apk add curl bash
-  - ./codecov.sh
+  image: plugins/codecov
+  secrets:
+  - codecov_token
 
 # Deploy executables to Github release tags
 - name: github_release
