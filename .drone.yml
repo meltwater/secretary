@@ -31,7 +31,7 @@ steps:
   settings:
     files:
     - coverage.txt
-    token: 0c7faa51dfab4358aa472cbdd23faf52
+    token: d5c62ebb53a2454aabe32e86c61a93d2
 
 # Deploy executables to Github release tags
 - name: github_release
