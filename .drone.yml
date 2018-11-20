@@ -28,15 +28,18 @@ steps:
     status:
     - success
   image: plugins/codecov
-  files:
-  - coverage.txt
-  token: 0c7faa51dfab4358aa472cbdd23faf52
+  settings:
+    files:
+    - coverage.txt
+    token: 0c7faa51dfab4358aa472cbdd23faf52
 
 # Deploy executables to Github release tags
 - name: github_release
   image: plugins/github-release
-  secrets: [ github_token ]
-  files: secretary-Linux-x86_64
+  settings:
+    files: secretary-Linux-x86_64
+    token:
+      from_secret: github_token
   when:
     status:
     - success
