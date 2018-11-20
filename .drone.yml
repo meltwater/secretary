@@ -28,11 +28,12 @@ steps:
     status:
     - success
   image: plugins/codecov
+  environment:
+    CODECOV_TOKEN:
+      from_secret: codecov_token
   settings:
     files:
     - coverage.txt
-    token:
-      from_secret: codecov_token
 
 # Deploy executables to Github release tags
 - name: github_release
