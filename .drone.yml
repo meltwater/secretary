@@ -31,7 +31,8 @@ steps:
   settings:
     files:
     - coverage.txt
-    token: d5c62ebb53a2454aabe32e86c61a93d2
+    token:
+      from_secret: codecov_token
 
 # Deploy executables to Github release tags
 - name: github_release
