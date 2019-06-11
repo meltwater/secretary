@@ -1,3 +1,8 @@
+# DEPRECATED
+This repository is no longer actively maintained.
+
+---
+
 # Secretary
 [![Travis CI](https://img.shields.io/travis/meltwater/secretary/master.svg)](https://travis-ci.org/meltwater/secretary)
 [![Coverage Status](http://codecov.io/github/meltwater/secretary/coverage.svg?branch=master)](http://codecov.io/github/meltwater/secretary?branch=master)
